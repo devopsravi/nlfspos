@@ -34,10 +34,10 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="/static/css/main.css" />
-  <link rel="stylesheet" href="/static/css/pos.css" />
-  <link rel="stylesheet" href="/static/css/labels.css" />
-  <link rel="stylesheet" href="/static/css/receipt.css" />
+  <link rel="stylesheet" href="/static/css/main.css?v=4" />
+  <link rel="stylesheet" href="/static/css/pos.css?v=4" />
+  <link rel="stylesheet" href="/static/css/labels.css?v=4" />
+  <link rel="stylesheet" href="/static/css/receipt.css?v=4" />
 </head>
 <body class="bg-[#ecf0f1] text-gray-800 min-h-screen flex">
 
@@ -1973,18 +1973,48 @@
     </div>
   </div>
 
-  <!-- JS Modules -->
-  <script src="/static/js/app.js"></script>
-  <script src="/static/js/inventory.js"></script>
-  <script src="/static/js/pos.js"></script>
-  <script src="/static/js/labels.js"></script>
-  <script src="/static/js/sales.js"></script>
-  <script src="/static/js/reports.js"></script>
-  <script src="/static/js/transactions.js"></script>
-  <script src="/static/js/settings.js"></script>
-  <script src="/static/js/suppliers.js"></script>
-  <script src="/static/js/customers.js"></script>
-  <script src="/static/js/orders.js"></script>
+  <!-- ===== SUPPLIER ITEMS MODAL (top-level so it's always accessible) ===== -->
+  <div id="supplierItemsModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
+      <div class="bg-[#5bc0de] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+        <h3 id="supplierItemsTitle" class="font-semibold text-sm">Supplier Products</h3>
+        <button id="supplierItemsClose" class="text-white/70 hover:text-white text-xl">&times;</button>
+      </div>
+      <div class="p-4 overflow-y-auto flex-1">
+        <table class="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
+          <thead class="bg-gray-100 text-gray-600 uppercase text-[10px]">
+            <tr>
+              <th class="px-3 py-2 text-left">#</th>
+              <th class="px-3 py-2 text-left">SKU</th>
+              <th class="px-3 py-2 text-left">Product Name</th>
+              <th class="px-3 py-2 text-left">Category</th>
+              <th class="px-3 py-2 text-right">Cost</th>
+              <th class="px-3 py-2 text-right">Selling</th>
+              <th class="px-3 py-2 text-right">Stock</th>
+            </tr>
+          </thead>
+          <tbody id="supplierItemsBody"></tbody>
+        </table>
+        <p id="supplierItemsEmpty" class="hidden text-center text-gray-400 text-xs py-8">No products found for this supplier.</p>
+      </div>
+      <div class="border-t px-5 py-3 flex justify-end">
+        <button onclick="Suppliers.closeItemsModal()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-xs hover:bg-gray-200">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS Modules (v= cache-buster) -->
+  <script src="/static/js/app.js?v=4"></script>
+  <script src="/static/js/inventory.js?v=4"></script>
+  <script src="/static/js/pos.js?v=4"></script>
+  <script src="/static/js/labels.js?v=4"></script>
+  <script src="/static/js/sales.js?v=4"></script>
+  <script src="/static/js/reports.js?v=4"></script>
+  <script src="/static/js/transactions.js?v=4"></script>
+  <script src="/static/js/settings.js?v=4"></script>
+  <script src="/static/js/suppliers.js?v=4"></script>
+  <script src="/static/js/customers.js?v=4"></script>
+  <script src="/static/js/orders.js?v=4"></script>
 
   <!-- Inventory column resizer -->
   <script>

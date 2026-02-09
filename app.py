@@ -1160,14 +1160,47 @@ def list_suppliers():
     suppliers = rows_to_list(rows)
 
     # Count inventory items per supplier
+    # Union of: (a) inventory.supplier matches name, (b) items from PO for this supplier
     for s in suppliers:
         count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM inventory WHERE LOWER(supplier) = LOWER(?)",
-            (s["name"],)
+            """SELECT COUNT(DISTINCT sku) as cnt FROM (
+                SELECT sku FROM inventory WHERE LOWER(supplier) = LOWER(?)
+                UNION
+                SELECT poi.sku FROM purchase_order_items poi
+                JOIN purchase_orders po ON poi.order_id = po.id
+                WHERE po.supplier_id = ?
+            ) AS combined""",
+            (s["name"], s["id"])
         ).fetchone()["cnt"]
         s["item_count"] = count
 
     return jsonify(suppliers)
+
+
+@app.route("/api/suppliers/<int:supplier_id>/items", methods=["GET"])
+@login_required
+def supplier_items(supplier_id):
+    """Return all inventory items linked to a supplier (by name match or purchase orders)."""
+    conn = db()
+    row = conn.execute("SELECT * FROM suppliers WHERE id = ?", (supplier_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Supplier not found"}), 404
+
+    supplier_name = row["name"]
+
+    items = conn.execute(
+        """SELECT DISTINCT i.* FROM inventory i
+           WHERE LOWER(i.supplier) = LOWER(?)
+           UNION
+           SELECT DISTINCT i.* FROM inventory i
+           JOIN purchase_order_items poi ON poi.sku = i.sku
+           JOIN purchase_orders po ON poi.order_id = po.id
+           WHERE po.supplier_id = ?
+           ORDER BY name""",
+        (supplier_name, supplier_id)
+    ).fetchall()
+
+    return jsonify(rows_to_list(items))
 
 
 @app.route("/api/suppliers", methods=["POST"])

@@ -35,6 +35,9 @@ const Suppliers = {
     document.getElementById('btnCancelSupplier').onclick = () =>
       document.getElementById('supplierModal').classList.add('hidden');
 
+    // Close items modal
+    document.getElementById('supplierItemsClose').onclick = () => this.closeItemsModal();
+
     // Form submit
     document.getElementById('supplierForm').onsubmit = async (e) => {
       e.preventDefault();
@@ -126,7 +129,7 @@ const Suppliers = {
             <td class="px-4 py-2.5 text-gray-600">${esc(s.contact_person || '—')}</td>
             <td class="px-4 py-2.5 text-gray-600">${esc(s.phone || '—')}</td>
             <td class="px-4 py-2.5 text-right">
-              <span class="text-blue-600 font-bold cursor-pointer hover:underline" onclick="Suppliers.viewItems('${esc(s.name)}')" title="View items from this supplier">${itemCount}</span>
+              <span class="text-blue-600 font-bold cursor-pointer hover:underline" onclick="Suppliers.viewItems(${s.id}, '${esc(s.name)}')" title="View items from this supplier">${itemCount}</span>
             </td>
             <td class="px-4 py-2.5 text-center">
               <div class="flex items-center justify-center gap-1.5">
@@ -266,15 +269,48 @@ const Suppliers = {
     }
   },
 
-  viewItems(supplierName) {
-    // Navigate to inventory and filter by supplier
-    App.navigate('inventory');
-    setTimeout(() => {
-      const search = document.getElementById('invSearch');
-      if (search) {
-        search.value = supplierName;
-        search.dispatchEvent(new Event('input'));
+  async viewItems(supplierId, supplierName) {
+    const modal = document.getElementById('supplierItemsModal');
+    const title = document.getElementById('supplierItemsTitle');
+    const tbody = document.getElementById('supplierItemsBody');
+    const empty = document.getElementById('supplierItemsEmpty');
+
+    title.textContent = `Products — ${supplierName}`;
+    tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-6 text-center text-gray-400">Loading...</td></tr>';
+    empty.classList.add('hidden');
+    modal.classList.remove('hidden');
+
+    try {
+      const res = await fetch(`/api/suppliers/${supplierId}/items`);
+      const items = await res.json();
+
+      if (!items.length) {
+        tbody.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
       }
-    }, 200);
+
+      const fmt = v => '₹' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      tbody.innerHTML = items.map((it, i) => {
+        const bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        const stockClass = it.quantity <= (it.reorder_level || 3) ? 'text-red-600 font-bold' : 'text-gray-700';
+        return `<tr class="${bg} hover:bg-blue-50 transition">
+          <td class="px-3 py-2 text-gray-400">${i + 1}</td>
+          <td class="px-3 py-2 font-mono text-gray-500">${esc(it.sku)}</td>
+          <td class="px-3 py-2 font-semibold text-gray-800">${esc(it.name)}</td>
+          <td class="px-3 py-2 text-gray-500">${esc(it.category || '—')}</td>
+          <td class="px-3 py-2 text-right text-gray-600">${fmt(it.cost_price)}</td>
+          <td class="px-3 py-2 text-right text-gray-700 font-medium">${fmt(it.selling_price)}</td>
+          <td class="px-3 py-2 text-right ${stockClass}">${it.quantity}</td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-6 text-center text-red-400">Failed to load items</td></tr>';
+    }
+  },
+
+  closeItemsModal() {
+    document.getElementById('supplierItemsModal').classList.add('hidden');
   },
 };
