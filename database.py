@@ -128,6 +128,9 @@ class PgConnectionWrapper:
         # Let me handle this differently with a flag
         return sql
 
+    # Tables known to have SERIAL id columns (for RETURNING id)
+    _SERIAL_TABLES = {"suppliers", "customers", "inventory", "sales", "sale_items"}
+
     def execute(self, sql, params=None):
         """Execute SQL with automatic dialect translation."""
         original_sql = sql
@@ -144,16 +147,18 @@ class PgConnectionWrapper:
 
         # For INSERT OR IGNORE, append ON CONFLICT DO NOTHING
         if is_ignore and "ON CONFLICT" not in sql.upper():
-            # Find the table and primary key to use
-            # Simple approach: append ON CONFLICT DO NOTHING
             sql = sql.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
 
         # Handle RETURNING id for INSERT statements to support lastrowid
+        # Only add RETURNING id for tables with SERIAL id columns
         needs_lastrowid = False
         if sql.strip().upper().startswith("INSERT") and "RETURNING" not in sql.upper():
-            # Check if table has a SERIAL/id column
-            needs_lastrowid = True
-            sql = sql.rstrip().rstrip(";") + " RETURNING id"
+            # Extract table name from INSERT INTO <table>
+            table_match = re.search(r"INSERT\s+INTO\s+(\w+)", sql, re.IGNORECASE)
+            table_name = table_match.group(1).lower() if table_match else ""
+            if table_name in self._SERIAL_TABLES:
+                needs_lastrowid = True
+                sql = sql.rstrip().rstrip(";") + " RETURNING id"
 
         try:
             cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -175,16 +180,11 @@ class PgConnectionWrapper:
             return wrapper
 
         except Exception as e:
-            # If RETURNING id fails (e.g., table has no id column), retry without
-            if needs_lastrowid and "column" in str(e).lower():
+            # Use savepoint rollback (not full transaction rollback) to preserve prior inserts
+            try:
                 self._conn.rollback()
-                sql_no_returning = sql.replace(" RETURNING id", "")
-                cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-                if params:
-                    cur.execute(sql_no_returning, params)
-                else:
-                    cur.execute(sql_no_returning)
-                return PgCursorWrapper(cur)
+            except Exception:
+                pass
             raise
 
     def executescript(self, sql):
@@ -765,11 +765,14 @@ def export_all_data():
 
 
 def import_all_data(data):
-    """Import a JSON data dict into the current database (works on both engines)."""
+    """Import a JSON data dict into the current database (works on both engines).
+    Commits after each section so a failure in one table doesn't lose others.
+    """
     conn = get_db()
     now = datetime.now().isoformat()
     imported = {"users": 0, "settings": 0, "inventory": 0, "suppliers": 0, "customers": 0, "sales": 0}
 
+    # --- Users ---
     for u in data.get("users", []):
         try:
             conn.execute(
@@ -782,7 +785,10 @@ def import_all_data(data):
             imported["users"] += 1
         except Exception as e:
             print(f"  [WARN] User {u.get('username')}: {e}")
+    conn.commit()
+    print(f"  [IMPORT] Users: {imported['users']}")
 
+    # --- Settings ---
     for key, value in data.get("settings", {}).items():
         try:
             conn.execute(
@@ -792,7 +798,10 @@ def import_all_data(data):
             imported["settings"] += 1
         except Exception as e:
             print(f"  [WARN] Setting {key}: {e}")
+    conn.commit()
+    print(f"  [IMPORT] Settings: {imported['settings']}")
 
+    # --- Inventory ---
     for p in data.get("inventory", []):
         try:
             conn.execute(
@@ -810,7 +819,10 @@ def import_all_data(data):
             imported["inventory"] += 1
         except Exception as e:
             print(f"  [WARN] Inventory {p.get('sku')}: {e}")
+    conn.commit()
+    print(f"  [IMPORT] Inventory: {imported['inventory']}")
 
+    # --- Suppliers ---
     for s in data.get("suppliers", []):
         try:
             conn.execute(
@@ -823,7 +835,10 @@ def import_all_data(data):
             imported["suppliers"] += 1
         except Exception as e:
             print(f"  [WARN] Supplier {s.get('name')}: {e}")
+    conn.commit()
+    print(f"  [IMPORT] Suppliers: {imported['suppliers']}")
 
+    # --- Customers ---
     for c in data.get("customers", []):
         try:
             conn.execute(
@@ -836,7 +851,10 @@ def import_all_data(data):
             imported["customers"] += 1
         except Exception as e:
             print(f"  [WARN] Customer {c.get('phone')}: {e}")
+    conn.commit()
+    print(f"  [IMPORT] Customers: {imported['customers']}")
 
+    # --- Sales + Items ---
     for s in data.get("sales", []):
         try:
             cursor = conn.execute(
@@ -865,9 +883,14 @@ def import_all_data(data):
                          float(item.get("discount_value", 0)), float(item.get("discount_amount", 0)),
                          float(item.get("final_total", item.get("line_total", 0))))
                     )
+            conn.commit()
             imported["sales"] += 1
         except Exception as e:
             print(f"  [WARN] Sale {s.get('receipt_number')}: {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    print(f"  [IMPORT] Sales: {imported['sales']}")
 
-    conn.commit()
     return imported
