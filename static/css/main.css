@@ -2,6 +2,48 @@
    Next Level Furniture POS — Main Styles
    ======================================== */
 
+/* --- Inventory Table: Resizable Columns --- */
+.inv-th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  overflow: hidden;
+  position: relative;
+  white-space: nowrap;
+  min-width: 50px;
+  user-select: none;
+}
+.inv-th .resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 10;
+}
+.inv-th .resizer:hover,
+.inv-th .resizer.active {
+  background: rgba(255,255,255,0.45);
+}
+#invTable td {
+  padding: 8px 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#invTable td.inv-name-cell {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+/* Prevent text selection while dragging columns */
+body.col-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* --- Sidebar (matches reference dark blue-gray) --- */
 .sidebar {
   background: #2c3e50;

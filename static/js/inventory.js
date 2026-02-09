@@ -64,7 +64,7 @@ const Inventory = {
       return `
         <tr class="${rowBg} hover:bg-blue-50 dark:hover:bg-gray-800 transition text-sm">
           <td class="px-4 py-2.5 font-mono text-xs text-gray-600">${safeSku}</td>
-          <td class="px-4 py-2.5 font-medium text-gray-800 max-w-[220px] truncate">${esc(p.name)}</td>
+          <td class="inv-name-cell font-medium text-gray-800" title="${esc(p.name)}">${esc(p.name)}</td>
           <td class="px-4 py-2.5 text-gray-600">${esc(p.category)}</td>
           <td class="px-4 py-2.5 text-right font-semibold ${isLow ? 'text-red-600' : 'text-gray-800'}">${p.quantity}</td>
           <td class="px-4 py-2.5 text-right text-gray-600">${App.currency(cost)}</td>

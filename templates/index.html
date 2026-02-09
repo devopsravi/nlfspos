@@ -299,20 +299,20 @@
 
         <!-- Inventory Table (like reference image) -->
         <div class="bg-white rounded-b-lg shadow-sm border-x border-b overflow-x-auto">
-          <table class="w-full text-sm" id="invTable">
+          <table class="text-sm" id="invTable" style="table-layout:fixed;width:100%;min-width:1100px;">
             <thead class="bg-[#3a7bd5] text-white text-xs uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-semibold">SKU</th>
-                <th class="px-4 py-3 text-left font-semibold">Name</th>
-                <th class="px-4 py-3 text-left font-semibold">Category</th>
-                <th class="px-4 py-3 text-right font-semibold">Qty On Hand</th>
-                <th class="px-4 py-3 text-right font-semibold">Cost</th>
-                <th class="px-4 py-3 text-right font-semibold">Retail Price</th>
-                <th class="px-4 py-3 text-right font-semibold">Margin %</th>
-                <th class="px-4 py-3 text-left font-semibold">Supplier</th>
-                <th class="px-4 py-3 text-right font-semibold">Reorder Pt</th>
-                <th class="px-4 py-3 text-left font-semibold">Status</th>
-                <th class="px-4 py-3 text-center font-semibold">Actions</th>
+                <th class="inv-th" style="width:110px;">SKU<div class="resizer"></div></th>
+                <th class="inv-th" style="width:220px;">Name<div class="resizer"></div></th>
+                <th class="inv-th" style="width:110px;">Category<div class="resizer"></div></th>
+                <th class="inv-th text-right" style="width:80px;">Qty On Hand<div class="resizer"></div></th>
+                <th class="inv-th text-right" style="width:90px;">Cost<div class="resizer"></div></th>
+                <th class="inv-th text-right" style="width:100px;">Retail Price<div class="resizer"></div></th>
+                <th class="inv-th text-right" style="width:80px;">Margin %<div class="resizer"></div></th>
+                <th class="inv-th" style="width:140px;">Supplier<div class="resizer"></div></th>
+                <th class="inv-th text-right" style="width:70px;">Reorder Pt<div class="resizer"></div></th>
+                <th class="inv-th" style="width:65px;">Status<div class="resizer"></div></th>
+                <th class="inv-th text-center" style="width:70px;">Actions</th>
               </tr>
             </thead>
             <tbody id="invTableBody" class="divide-y">
@@ -1399,5 +1399,39 @@
   <script src="/static/js/settings.js"></script>
   <script src="/static/js/suppliers.js"></script>
   <script src="/static/js/customers.js"></script>
+
+  <!-- Inventory column resizer -->
+  <script>
+  (function() {
+    const table = document.getElementById('invTable');
+    if (!table) return;
+    const resizers = table.querySelectorAll('.resizer');
+    resizers.forEach(function(resizer) {
+      let startX, startW, th;
+      resizer.addEventListener('mousedown', function(e) {
+        th = resizer.parentElement;
+        startX = e.pageX;
+        startW = th.offsetWidth;
+        resizer.classList.add('active');
+        document.body.classList.add('col-resizing');
+
+        function onMouseMove(e) {
+          const diff = e.pageX - startX;
+          const newW = Math.max(50, startW + diff);
+          th.style.width = newW + 'px';
+        }
+        function onMouseUp() {
+          resizer.classList.remove('active');
+          document.body.classList.remove('col-resizing');
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        }
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        e.preventDefault();
+      });
+    });
+  })();
+  </script>
 </body>
 </html>
