@@ -15,9 +15,10 @@ data/*.db-wal
 data/*.db-shm
 data/backups/
 
-# JSON legacy data
+# JSON legacy data & export files
 data/*.json
 data/*.json.bak
+data/export_for_cloud.json
 
 # Environment
 .env

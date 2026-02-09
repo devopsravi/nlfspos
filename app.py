@@ -22,7 +22,7 @@ from database import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "nlf-pos-secret-key-change-in-production")
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(32).hex())
 
 # ---------------------------------------------------------------------------
 # Production config
