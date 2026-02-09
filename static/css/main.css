@@ -1,0 +1,136 @@
+/* ========================================
+   Next Level Furniture POS — Main Styles
+   ======================================== */
+
+/* --- Sidebar (matches reference dark blue-gray) --- */
+.sidebar {
+  background: #2c3e50;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.sidebar .nav-link {
+  color: #a0b4c8;
+  transition: all 0.15s ease;
+}
+.sidebar .nav-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border-left-color: rgba(255,255,255,0.3) !important;
+}
+.sidebar .nav-link.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-left-color: #14b8a6 !important;
+}
+
+/* --- Toast --- */
+#toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* --- Modal --- */
+.modal-overlay {
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* --- Dark mode overrides --- */
+.dark body,
+.dark {
+  background-color: #111827;
+  color: #e5e7eb;
+}
+.dark .bg-white {
+  background-color: #1f2937 !important;
+}
+.dark .bg-gray-50,
+.dark .bg-\[\#ecf0f1\] {
+  background-color: #111827 !important;
+}
+.dark .border {
+  border-color: #374151 !important;
+}
+.dark .border-b {
+  border-color: #374151 !important;
+}
+.dark .text-gray-800 {
+  color: #e5e7eb !important;
+}
+.dark .text-gray-500 {
+  color: #9ca3af !important;
+}
+.dark .text-gray-400 {
+  color: #6b7280 !important;
+}
+.dark input, .dark select, .dark textarea {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+.dark header {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+.dark .divide-y > :not(:first-child) {
+  border-color: #374151;
+}
+
+/* --- Low stock badge --- */
+.stock-low {
+  background-color: #fef2f2;
+  color: #dc2626;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+}
+.stock-ok {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+}
+
+/* --- Active payment method --- */
+.pay-method-btn.active-pay {
+  ring: 2px;
+  outline: 2px solid #22c55e;
+  outline-offset: 1px;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+/* --- Print: hide everything except print areas --- */
+@media print {
+  body > *:not(#receiptPrintArea):not(#labelPreview) {
+    display: none !important;
+  }
+  #receiptPrintArea {
+    display: block !important;
+  }
+  #labelPreview {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0.25in;
+    background: #fff;
+  }
+}

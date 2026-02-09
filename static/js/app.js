@@ -1,0 +1,345 @@
+/* ========================================
+   App.js — Core router, state, helpers
+   ======================================== */
+
+// --- XSS Protection: HTML entity escaper ---
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+// Global fetch interceptor — redirect to login on 401 Unauthorized
+(function() {
+  const _origFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const res = await _origFetch.apply(this, args);
+    // Only intercept /api calls (not external resources)
+    const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+    if (url.startsWith('/api') && res.status === 401 && !url.includes('/api/auth/me') && !url.includes('/api/auth/login')) {
+      // Session expired — redirect to login
+      window.location.href = '/login';
+    }
+    return res;
+  };
+})();
+
+const App = {
+  settings: {},
+  currentPage: 'pos',
+  userRole: 'staff',  // set from server
+
+  async init() {
+    await this.loadSettings();
+    await this.loadUserRole();
+    this.applyPermissions();
+    this.setupNavigation();
+    this.setupDarkMode();
+    this.setupModals();
+    this.updateHeader();
+    // Check URL hash for initial page, or use role-based default
+    const hashPage = this.getPageFromHash();
+    if (hashPage) {
+      this.navigate(hashPage.page, hashPage.sub, true);
+    } else {
+      this.navigate(this.userRole === 'admin' ? 'sales' : 'pos');
+    }
+
+    // Handle browser back/forward buttons
+    window.addEventListener('hashchange', () => {
+      const h = this.getPageFromHash();
+      if (h && h.page !== this.currentPage) {
+        this.navigate(h.page, h.sub, true); // skipHash=true to avoid re-setting hash
+      }
+    });
+
+    // Periodic session check — every 5 minutes verify we're still authenticated
+    this._sessionCheckInterval = setInterval(() => this.checkSession(), 5 * 60 * 1000);
+  },
+
+  async checkSession() {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        this.isAuthenticated = false;
+        clearInterval(this._sessionCheckInterval);
+        alert('Your session has expired. Please log in again.');
+        window.location.href = '/login';
+      }
+    } catch (e) {
+      // Network error — don't force logout, they may just be offline momentarily
+    }
+  },
+
+  getPageFromHash() {
+    const hash = location.hash.replace('#', '');
+    if (!hash) return null;
+    const parts = hash.split('/');
+    const page = parts[0];
+    const sub = parts[1] || null;
+    const validPages = ['pos', 'sales', 'inventory', 'labels', 'reports', 'transactions', 'settings'];
+    if (validPages.includes(page)) return { page, sub };
+    return null;
+  },
+
+  refresh() {
+    // Manager & staff always go to POS on refresh; admin reloads current page
+    if (this.userRole === 'admin') {
+      location.reload();
+    } else {
+      // Navigate to POS and re-init it
+      this.navigate('pos');
+    }
+  },
+
+  isAuthenticated: false,
+
+  async loadUserRole() {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (res.ok) {
+        const user = await res.json();
+        this.userRole = user.role || 'staff';
+        this.isAuthenticated = true;
+      } else {
+        // Not logged in — redirect to login page
+        this.isAuthenticated = false;
+        window.location.href = '/login';
+        return;
+      }
+    } catch (e) {
+      // Network error — redirect to login
+      this.isAuthenticated = false;
+      window.location.href = '/login';
+      return;
+    }
+  },
+
+  applyPermissions() {
+    // Hide sidebar items that this role cannot access
+    document.querySelectorAll('#sidebarNav [data-perm]').forEach(el => {
+      const perm = el.dataset.perm;
+      if (perm === 'all') return; // everyone can see
+      if (perm === 'admin' && this.userRole !== 'admin') {
+        el.style.display = 'none';
+      }
+      // manager can view inventory (read-only), so show it but we hide edit buttons in JS
+      if (perm === 'admin' && this.userRole === 'manager') {
+        // manager can see inventory (read-only), labels, and transactions
+        if (el.dataset.page === 'inventory' || el.dataset.page === 'labels' || el.dataset.page === 'transactions') {
+          el.style.display = '';
+        }
+      }
+    });
+  },
+
+  // --- Settings ---
+  async loadSettings() {
+    try {
+      const res = await fetch('/api/settings');
+      this.settings = await res.json();
+    } catch (e) {
+      console.error('Failed to load settings', e);
+      this.settings = {};
+    }
+  },
+
+  currency(amount) {
+    const sym = this.settings.currency_symbol || '₹';
+    return `${sym}${parseFloat(amount || 0).toFixed(2)}`;
+  },
+
+  taxRate() {
+    return parseFloat(this.settings.tax_rate || 0) / 100;
+  },
+
+  taxName() {
+    return this.settings.tax_name || 'Tax';
+  },
+
+  // --- Navigation ---
+  setupNavigation() {
+    // Normal nav links
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const page = link.dataset.page;
+        const sub = link.dataset.sub;
+        if (page) {
+          // If it's a settings sub-link, keep sub menu open
+          if (page === 'settings' && sub) {
+            const subMenu = document.getElementById('settingsSubMenu');
+            const chevron = document.getElementById('settingsChevron');
+            if (subMenu) subMenu.classList.remove('hidden');
+            if (chevron) chevron.classList.add('rotate-180');
+          }
+          this.navigate(page, sub);
+        }
+      });
+    });
+
+    // Settings toggle button (expand/collapse sub-menu + navigate)
+    const settingsToggle = document.getElementById('settingsToggle');
+    const settingsSubMenu = document.getElementById('settingsSubMenu');
+    const settingsChevron = document.getElementById('settingsChevron');
+    if (settingsToggle) {
+      settingsToggle.addEventListener('click', () => {
+        const isHidden = settingsSubMenu.classList.contains('hidden');
+        settingsSubMenu.classList.toggle('hidden');
+        settingsChevron.classList.toggle('rotate-180');
+        // If opening, navigate to settings (first sub)
+        if (isHidden) {
+          this.navigate('settings', 'staff');
+        }
+      });
+    }
+  },
+
+  navigate(page, sub, skipHash) {
+    // Auth guard: if not authenticated, redirect to login
+    if (!this.isAuthenticated) {
+      window.location.href = '/login';
+      return;
+    }
+
+    // Permission guard: non-admin can't access restricted pages
+    const adminOnly = ['sales','inventory','labels','settings','reports','transactions'];
+    if (adminOnly.includes(page) && this.userRole === 'staff') {
+      page = 'pos'; // redirect staff to POS
+    }
+    // Manager can view inventory read-only but not settings/dashboard/reports
+    if (page === 'settings' && this.userRole !== 'admin') { page = 'pos'; }
+    if (page === 'sales' && this.userRole !== 'admin') { page = 'pos'; }
+    if (page === 'reports' && this.userRole !== 'admin') { page = 'pos'; }
+
+    this.currentPage = page;
+
+    // Update browser URL hash
+    if (!skipHash) {
+      const hashVal = sub ? `${page}/${sub}` : page;
+      if (location.hash !== '#' + hashVal) {
+        location.hash = hashVal;
+      }
+    }
+
+    // Update nav active state
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active','text-white'));
+    const activeLink = document.querySelector(`.nav-link[data-page="${page}"]:not(.sub-link)`);
+    if (activeLink) activeLink.classList.add('active');
+
+    // Show/hide pages
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.add('hidden');
+      p.style.display = 'none';
+    });
+    const pageEl = document.getElementById(`page-${page}`);
+    if (pageEl) {
+      pageEl.classList.remove('hidden');
+      pageEl.style.display = 'block';
+    }
+
+    // POS page: disable outer scroll so cart stays in viewport
+    const container = document.getElementById('pageContainer');
+    if (container) {
+      container.style.overflow = (page === 'pos') ? 'hidden' : 'auto';
+    }
+
+    // Update title + breadcrumb subtitle
+    const titles = { pos: 'POS Register', inventory: 'Items', labels: 'Labels', sales: 'Dashboard', reports: 'Reports', transactions: 'Sales', settings: 'Settings' };
+    const subtitles = { pos: 'checkout & billing', inventory: 'manage products', labels: 'barcode labels', sales: 'overview & stats', reports: 'sales & analytics', transactions: 'view & search transactions', settings: 'staff & config' };
+    document.getElementById('pageTitle').textContent = titles[page] || page;
+    const subEl = document.querySelector('#pageTitle + span');
+    if (subEl) subEl.textContent = `\u203A ${subtitles[page] || ''}`;
+
+    // Trigger page init
+    switch (page) {
+      case 'pos': if (typeof POS !== 'undefined') POS.init(); break;
+      case 'inventory': if (typeof Inventory !== 'undefined') Inventory.init(); break;
+      case 'labels': if (typeof Labels !== 'undefined') Labels.init(); break;
+      case 'sales': if (typeof Sales !== 'undefined') Sales.init(); break;
+      case 'reports': if (typeof Reports !== 'undefined') Reports.init(); break;
+      case 'transactions': if (typeof Transactions !== 'undefined') Transactions.init(); break;
+      case 'settings': if (typeof Settings !== 'undefined') Settings.init(sub || 'staff'); break;
+    }
+  },
+
+  // --- Dark Mode ---
+  setupDarkMode() {
+    const toggle = document.getElementById('darkToggle');
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.documentElement.classList.add('dark');
+    }
+    toggle.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+    });
+  },
+
+  // --- Header ---
+  updateHeader() {
+    // Username is now rendered server-side via Jinja; just update date
+    document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-IN', {
+      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+    });
+  },
+
+  // --- Logout ---
+  async logout() {
+    const ok = await this.confirm('Sign out of the POS system?');
+    if (!ok) return;
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) { /* ignore */ }
+    window.location.href = '/login';
+  },
+
+  // --- Modals ---
+  setupModals() {
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-close')) {
+        const modal = e.target.closest('.modal-overlay, [id$="Modal"]');
+        if (modal) modal.classList.add('hidden');
+      }
+    });
+    // Close modal on backdrop click
+    document.querySelectorAll('.modal-overlay, #heldModal, #receiptModal, #confirmModal').forEach(m => {
+      m.addEventListener('click', (e) => {
+        if (e.target === m) m.classList.add('hidden');
+      });
+    });
+  },
+
+  // --- Toast ---
+  toast(message, duration = 2500) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => el.classList.remove('show'), duration);
+  },
+
+  // --- Confirm Dialog ---
+  confirm(message) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('confirmModal');
+      document.getElementById('confirmMsg').textContent = message;
+      modal.classList.remove('hidden');
+      const ok = document.getElementById('confirmOk');
+      const cancel = document.getElementById('confirmCancel');
+      const cleanup = (val) => {
+        modal.classList.add('hidden');
+        ok.removeEventListener('click', onOk);
+        cancel.removeEventListener('click', onCancel);
+        resolve(val);
+      };
+      const onOk = () => cleanup(true);
+      const onCancel = () => cleanup(false);
+      ok.addEventListener('click', onOk);
+      cancel.addEventListener('click', onCancel);
+    });
+  },
+};
+
+// Boot
+document.addEventListener('DOMContentLoaded', () => App.init());

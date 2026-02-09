@@ -1,0 +1,114 @@
+/* ========================================
+   Label Printing Styles
+   ======================================== */
+
+/* Label card selector */
+.label-select-card {
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  border-radius: 1rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.label-select-card:hover {
+  border-color: #86efac;
+}
+.label-select-card.selected {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+.label-select-card .lsc-check {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.label-select-card.selected .lsc-check {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: #fff;
+}
+
+/* Print label layout */
+.print-label {
+  border: 1px dashed #d1d5db;
+  padding: 12px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Label sizes */
+.print-label.size-2x1 {
+  width: 2in;
+  height: 1in;
+  padding: 4px 6px;
+}
+.print-label.size-2x1 .label-store  { font-size: 6px; }
+.print-label.size-2x1 .label-name   { font-size: 8px; font-weight: 700; }
+.print-label.size-2x1 .label-price  { font-size: 14px; font-weight: 800; }
+.print-label.size-2x1 .label-sku    { font-size: 6px; }
+.print-label.size-2x1 .label-meta   { font-size: 5px; }
+.print-label.size-2x1 svg.barcode   { max-width: 80%; height: 18px; }
+
+.print-label.size-3x2 {
+  width: 3in;
+  height: 2in;
+  padding: 8px 10px;
+}
+.print-label.size-3x2 .label-store  { font-size: 8px; }
+.print-label.size-3x2 .label-name   { font-size: 11px; font-weight: 700; }
+.print-label.size-3x2 .label-price  { font-size: 22px; font-weight: 800; }
+.print-label.size-3x2 .label-sku    { font-size: 8px; }
+.print-label.size-3x2 .label-meta   { font-size: 7px; }
+.print-label.size-3x2 svg.barcode   { max-width: 90%; height: 30px; }
+
+.print-label.size-4x2 {
+  width: 4in;
+  height: 2in;
+  padding: 10px 14px;
+}
+.print-label.size-4x2 .label-store  { font-size: 9px; }
+.print-label.size-4x2 .label-name   { font-size: 13px; font-weight: 700; }
+.print-label.size-4x2 .label-price  { font-size: 26px; font-weight: 800; }
+.print-label.size-4x2 .label-sku    { font-size: 9px; }
+.print-label.size-4x2 .label-meta   { font-size: 8px; }
+.print-label.size-4x2 svg.barcode   { max-width: 90%; height: 36px; }
+
+/* Print media */
+@media print {
+  .print-label {
+    border: 1px solid #000;
+    margin: 4px;
+  }
+  #labelPreview {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0.25in;
+  }
+}
+
+/* Dark mode */
+.dark .label-select-card {
+  background: #1f2937;
+  border-color: #374151;
+}
+.dark .label-select-card.selected {
+  background: #14532d;
+  border-color: #22c55e;
+}

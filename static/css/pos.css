@@ -1,0 +1,213 @@
+/* ========================================
+   POS Screen Styles — Register Layout
+   ======================================== */
+
+/* Product card in right-side quick-select grid */
+.pos-product-card {
+  background: #fff;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3px;
+  min-height: 75px;
+  justify-content: center;
+}
+.pos-product-card:hover {
+  border-color: #0d9488;
+  box-shadow: 0 3px 12px rgba(13, 148, 136, 0.2);
+  transform: translateY(-1px);
+}
+.pos-product-card:active {
+  transform: scale(0.97);
+}
+.pos-product-card .card-name {
+  font-weight: 600;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: #1f2937;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pos-product-card .card-sku {
+  display: none;
+}
+.pos-product-card .card-price {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0d9488;
+  margin-top: 3px;
+}
+.pos-product-card .card-stock {
+  font-size: 0.65rem;
+  color: #9ca3af;
+}
+.pos-product-card.out-of-stock {
+  opacity: 0.4;
+  pointer-events: none;
+  background: #f3f4f6;
+}
+
+/* Cart table rows */
+#cartTable tbody tr {
+  transition: background 0.1s;
+}
+#cartTable tbody tr:hover {
+  background: #f0fdf4 !important;
+}
+#cartTable tbody td {
+  vertical-align: middle;
+}
+
+/* Qty controls in table */
+.cart-qty-ctrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  padding: 2px;
+}
+.cart-qty-ctrl button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #e5e7eb;
+  color: #374151;
+  transition: background 0.1s;
+}
+.cart-qty-ctrl button:hover {
+  background: #d1d5db;
+}
+.cart-qty-ctrl span {
+  width: 28px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Remove button in table */
+.cart-remove-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: #fee2e2;
+  color: #dc2626;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  transition: background 0.1s;
+}
+.cart-remove-btn:hover {
+  background: #fecaca;
+}
+
+/* Discount controls in table cell */
+.cart-disc-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: center;
+}
+.cart-disc-ctrl select {
+  font-size: 11px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 2px 4px;
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: pointer;
+  max-width: 60px;
+}
+.cart-disc-ctrl input {
+  width: 42px;
+  font-size: 11px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 2px 4px;
+  text-align: right;
+}
+.cart-disc-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #dc2626;
+  white-space: nowrap;
+}
+
+/* Active payment method */
+.pay-method-btn.active-pay {
+  outline: 3px solid #111827;
+  outline-offset: 1px;
+}
+
+/* Line-through for discounted prices */
+.line-through {
+  text-decoration: line-through;
+}
+
+/* Dark mode overrides */
+.dark .pos-product-card {
+  background: #1f2937;
+  border-color: #4b5563;
+}
+.dark .pos-product-card:hover {
+  border-color: #14b8a6;
+}
+.dark .pos-product-card .card-name {
+  color: #e5e7eb;
+}
+.dark .pos-product-card .card-price {
+  color: #5eead4;
+}
+.dark #cartTable thead {
+  background: #1e3a5f !important;
+}
+.dark #cartTable tbody tr:hover {
+  background: #1f2937 !important;
+}
+.dark .cart-qty-ctrl {
+  background: #374151;
+}
+.dark .cart-qty-ctrl button {
+  background: #4b5563;
+  color: #d1d5db;
+}
+.dark .cart-qty-ctrl button:hover {
+  background: #6b7280;
+}
+.dark .cart-qty-ctrl span {
+  color: #f3f4f6;
+}
+.dark .cart-remove-btn {
+  background: #451a1a;
+  color: #f87171;
+}
+.dark .cart-disc-ctrl select {
+  background: #1f2937;
+  border-color: #4b5563;
+  color: #9ca3af;
+}
+.dark .cart-disc-ctrl input {
+  background: #1f2937;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}

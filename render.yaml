@@ -1,0 +1,21 @@
+# Render Blueprint — deploy with "New → Blueprint Instance"
+services:
+  - type: web
+    name: nlf-pos
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PRODUCTION
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nlf-pos-db
+          property: connectionString
+
+databases:
+  - name: nlf-pos-db
+    plan: free
+    databaseName: nlf_pos

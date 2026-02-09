@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d9488"/>
+      <stop offset="100%" style="stop-color:#2c3e50"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" ry="14" fill="url(#bg)"/>
+  <!-- Sofa mini icon -->
+  <g transform="translate(32,22)" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-13,-6 Q-13,-12 -7,-12 L7,-12 Q13,-12 13,-6"/>
+    <path d="M-16,-6 L-16,2 Q-16,5 -13,5 L13,5 Q16,5 16,2 L16,-6"/>
+    <path d="M-16,-6 Q-19,-6 -19,-2 L-19,3 Q-19,5 -17,5 L-16,5"/>
+    <path d="M16,-6 Q19,-6 19,-2 L19,3 Q19,5 17,5 L16,5"/>
+  </g>
+  <!-- NLF text -->
+  <text x="32" y="50" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="800" fill="#fff" letter-spacing="1">NLF</text>
+</svg>

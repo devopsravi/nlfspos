@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Next Level Furniture — POS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg" />
+  <link rel="apple-touch-icon" href="/static/img/logo.svg" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand:   { 50:'#f0fdf4',100:'#dcfce7',200:'#bbf7d0',300:'#86efac',400:'#4ade80',500:'#22c55e',600:'#16a34a',700:'#15803d',800:'#166534',900:'#14532d' },
+            accent:  { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a5f' },
+            sidebar: { DEFAULT:'#2c3e50', dark:'#1a252f', light:'#34495e', hover:'#3d566e' },
+            teal:    { 50:'#f0fdfa',100:'#ccfbf1',200:'#99f6e4',300:'#5eead4',400:'#2dd4bf',500:'#14b8a6',600:'#0d9488',700:'#0f766e',800:'#115e59',900:'#134e4a' },
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- JsBarcode -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <!-- QRCode (browser-native library) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/pos.css" />
+  <link rel="stylesheet" href="/static/css/labels.css" />
+  <link rel="stylesheet" href="/static/css/receipt.css" />
+</head>
+<body class="bg-[#ecf0f1] text-gray-800 min-h-screen flex">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside id="sidebar" class="sidebar w-60 bg-sidebar text-white flex flex-col min-h-screen print:hidden">
+    <a href="#" onclick="App.navigate('pos');return false;" class="px-5 py-5 border-b border-sidebar-light flex items-center gap-3 hover:bg-white/5 transition cursor-pointer">
+      <img src="/static/img/favicon.svg" alt="NLF" class="w-10 h-10 rounded-lg" />
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-white leading-tight">Next Level</h1>
+        <p class="text-[11px] text-teal-400 font-semibold tracking-widest uppercase">Furniture</p>
+      </div>
+    </a>
+    <nav class="flex-1 py-3" id="sidebarNav">
+      <a href="#" data-page="sales" data-perm="admin" class="nav-link active flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>
+        Dashboard
+      </a>
+      <a href="#" data-page="pos" data-perm="all" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m5-9v9m4-9v9m5-9l2 9"/></svg>
+        POS Register
+      </a>
+      <a href="#" data-page="inventory" data-perm="admin" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        Inventory
+      </a>
+      <a href="#" data-page="transactions" data-perm="admin" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        Sales
+      </a>
+      <a href="#" data-page="reports" data-perm="admin" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Reports
+      </a>
+      <a href="#" data-page="labels" data-perm="admin" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 7h.01M7 3h5a1.99 1.99 0 011.41.59l7 7a2 2 0 010 2.82l-7 7a2 2 0 01-2.82 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z"/></svg>
+        Labels
+      </a>
+
+      <!-- Settings with expandable sub-menu (admin only) -->
+      <div data-perm="admin" id="settingsMenuGroup">
+        <button id="settingsToggle" class="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-[#a0b4c8] hover:text-white hover:bg-white/5 transition border-l-[3px] border-transparent">
+          <span class="flex items-center gap-3">
+            <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+            Settings
+          </span>
+          <svg id="settingsChevron" class="w-4 h-4 opacity-50 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div id="settingsSubMenu" class="hidden pl-8 space-y-0.5 pb-2">
+          <a href="#" data-page="settings" data-sub="staff" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Staff & Admins
+          </a>
+          <a href="#" data-page="settings" data-sub="store" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Store Settings
+          </a>
+          <a href="#" data-page="settings" data-sub="pos" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> POS Settings
+          </a>
+          <a href="#" data-page="settings" data-sub="suppliers" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Suppliers
+          </a>
+          <a href="#" data-page="settings" data-sub="customers" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Customers
+          </a>
+        </div>
+      </div>
+    </nav>
+    <div class="px-5 py-4 border-t border-sidebar-light">
+      <button id="darkToggle" class="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        Dark Mode
+      </button>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="flex-1 flex flex-col min-h-screen overflow-hidden">
+
+    <!-- Top Bar -->
+    <header class="bg-white border-b px-5 py-3 flex items-center justify-between print:hidden">
+      <div class="flex items-center gap-2">
+        <a href="#" onclick="App.navigate('pos');return false;" class="flex items-center gap-1.5 hover:opacity-80 transition">
+          <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>
+          <span class="text-teal-600 text-sm font-medium cursor-pointer">Home</span>
+        </a>
+        <span class="text-gray-300 text-sm">/</span>
+        <h2 id="pageTitle" class="text-base font-semibold text-gray-700">Dashboard</h2>
+        <span id="pageSub" class="text-gray-400 text-sm ml-1">&rsaquo; overview & stats</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-lg">
+          <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          <span id="headerCashier" class="text-sm font-medium text-gray-700">{{ user.name }}</span>
+          <span class="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded font-semibold uppercase">{{ user.role }}</span>
+        </div>
+        <span class="text-gray-300">|</span>
+        <span id="headerDate" class="text-sm text-gray-500"></span>
+        <button onclick="App.refresh()" class="bg-teal-500 hover:bg-teal-600 text-white text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 transition font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Refresh
+        </button>
+        <button onclick="App.logout()" class="bg-red-50 hover:bg-red-100 text-red-600 text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 transition font-medium" title="Sign out">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Page Container -->
+    <div id="pageContainer" class="flex-1 overflow-y-auto">
+
+      <!-- ==================== POS PAGE ==================== -->
+      <section id="page-pos" class="page hidden" style="height:calc(100vh - 57px); display:none; padding:10px 10px 10px 10px;">
+        <div class="flex gap-3 h-full">
+
+          <!-- LEFT: Register / Cart area -->
+          <div class="flex-1 flex flex-col min-h-0 bg-white rounded-lg shadow-sm border overflow-hidden">
+
+            <!-- Top bar: Stock Code + Stock Search -->
+            <div class="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b flex-shrink-0">
+              <input id="posSkuInput" type="text" placeholder="Stock Code"
+                class="w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+              <button id="btnAddSku" class="bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-600">Add</button>
+              <div class="flex-1"></div>
+              <input id="posSearch" type="text" placeholder="Stock Search"
+                class="w-72 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+              <select id="posCategoryFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="">All</option>
+              </select>
+            </div>
+
+            <!-- Cart Table (scrollable) -->
+            <div class="flex-1 overflow-y-auto min-h-0">
+              <table class="w-full text-sm" id="cartTable">
+                <thead class="bg-[#3a7bd5] text-white sticky top-0 z-10">
+                  <tr>
+                    <th class="px-4 py-2.5 text-left w-20 text-sm font-semibold">Qty</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-semibold">Name</th>
+                    <th class="px-4 py-2.5 text-right w-28 text-sm font-semibold">Price</th>
+                    <th class="px-4 py-2.5 text-right w-24 text-sm font-semibold">Tax</th>
+                    <th class="px-4 py-2.5 text-right w-28 text-sm font-semibold">Total</th>
+                    <th class="px-3 py-2.5 text-center w-28 text-sm font-semibold">Discount</th>
+                    <th class="px-3 py-2.5 text-center w-20 text-sm font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="cartItems" class="divide-y divide-gray-100">
+                  <tr><td colspan="7" class="text-center text-gray-400 py-10 text-sm">No items in cart</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Bottom: Customer + Totals -->
+            <div class="flex-shrink-0 border-t bg-gray-50">
+              <div class="flex items-start gap-4 px-4 py-3">
+                <!-- Customer Info -->
+                <div class="flex items-center gap-2">
+                  <input id="custPhone" type="text" placeholder="Customer Mobile" class="w-36 px-3 py-2 border rounded-lg text-sm" autocomplete="off" />
+                  <input id="custName" type="text" placeholder="Name" class="w-32 px-3 py-2 border rounded-lg text-sm" />
+                  <input id="custEmail" type="email" placeholder="Email" class="w-36 px-3 py-2 border rounded-lg text-sm hidden" />
+                  <button onclick="document.getElementById('custEmail').classList.toggle('hidden')" class="bg-teal-500 text-white px-3 py-2 rounded-lg text-xs font-semibold">Options</button>
+                </div>
+                <div class="flex-1"></div>
+                <!-- Totals -->
+                <div class="text-sm min-w-[250px]">
+                  <div class="flex justify-between py-0.5"><span class="text-gray-500 font-medium">Total Items:</span><span id="cartItemCount" class="font-semibold">0</span></div>
+                  <div class="flex justify-between py-0.5 items-center">
+                    <span class="text-gray-500 font-medium">Discount:</span>
+                    <span id="cartDiscount" class="font-semibold text-red-500">-₹0.00</span>
+                  </div>
+                  <div id="cartDiscountRow" style="display:none"></div>
+                  <div class="flex justify-between py-0.5"><span class="text-gray-500 font-medium">Subtotal:</span><span id="cartSubtotal" class="font-semibold">₹0.00</span></div>
+                  <div class="flex justify-between py-0.5"><span class="text-gray-500 font-medium" id="taxLabel">GST (18%):</span><span id="cartTax" class="font-semibold">₹0.00</span></div>
+                  <div class="flex justify-between py-1 border-t mt-1 pt-1"><span class="text-gray-800 font-bold text-base">Total:</span><span id="cartTotal" class="font-bold text-teal-600 text-base">₹0.00</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Categories + Products + Pay + Actions -->
+          <div class="w-[320px] flex flex-col min-h-0 bg-white rounded-lg shadow-sm border overflow-hidden">
+
+            <!-- Categories Button -->
+            <div class="px-3 pt-3 pb-1 flex-shrink-0">
+              <select id="posCatQuick" class="w-full bg-teal-500 text-white px-4 py-2.5 rounded-lg text-sm font-bold cursor-pointer">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+
+            <!-- Product Quick-Select Grid (scrollable) -->
+            <div id="posProductGrid" class="flex-1 overflow-y-auto px-3 py-2 min-h-0">
+              <div class="grid grid-cols-2 gap-2.5 content-start" id="posProductCards">
+                <!-- Product cards injected by JS -->
+              </div>
+            </div>
+
+            <!-- Pay Button -->
+            <div class="px-3 py-2.5 flex-shrink-0">
+              <button id="btnCompleteSale" class="w-full bg-green-500 text-white py-4 rounded-lg text-xl font-bold hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg" disabled>
+                Pay ₹0.00
+              </button>
+            </div>
+
+            <!-- Action Buttons Grid -->
+            <div class="px-3 pb-3 flex-shrink-0">
+              <div class="grid grid-cols-4 gap-2 mb-2">
+                <button data-pay="Cash" class="pay-method-btn bg-green-500 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-green-600 active-pay">Cash</button>
+                <button data-pay="Card" class="pay-method-btn bg-blue-500 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-blue-600">Card</button>
+                <button data-pay="UPI" id="btnUpiPay" class="pay-method-btn bg-orange-500 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-orange-600">UPI QR</button>
+                <button data-pay="Other" class="pay-method-btn bg-purple-500 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-purple-600">Other</button>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <button id="btnHoldSale" class="bg-amber-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-amber-700">Suspend</button>
+                <button id="btnRecallSale" class="bg-[#8b6f47] text-white py-2.5 rounded-lg text-xs font-bold hover:bg-[#7a5f3a] relative">
+                  Recall
+                  <span id="heldBadge" class="hidden absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">0</span>
+                </button>
+                <button id="btnClearCart" class="bg-red-500 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-red-600">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== INVENTORY PAGE ==================== -->
+      <section id="page-inventory" class="page p-5 hidden">
+
+        <!-- Blue Header Bar (like reference) -->
+        <div class="bg-[#3a7bd5] text-white rounded-t-lg px-5 py-3 text-base font-semibold flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          Manage your business products
+        </div>
+
+        <!-- Search & Controls Bar -->
+        <div class="bg-white border-x px-5 py-3.5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-gray-500 font-medium">Search:</span>
+            <input id="invSearch" type="text" placeholder="Product name, SKU…"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm w-52 focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+            <select id="invCategoryFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="">All Categories</option>
+            </select>
+            <label class="flex items-center gap-2 text-sm text-gray-600">
+              <input id="invLowStock" type="checkbox" class="rounded border-gray-300 w-4 h-4" /> Low Stock
+            </label>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btnExportCSV" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+              Export
+            </button>
+            <label class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 cursor-pointer flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              Import
+              <input id="btnImportCSV" type="file" accept=".csv" class="hidden" />
+            </label>
+            <button id="btnAddProduct" class="bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-600 flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+              Add Product
+            </button>
+          </div>
+        </div>
+
+        <!-- Inventory Table (like reference image) -->
+        <div class="bg-white rounded-b-lg shadow-sm border-x border-b overflow-x-auto">
+          <table class="w-full text-sm" id="invTable">
+            <thead class="bg-[#3a7bd5] text-white text-xs uppercase tracking-wide">
+              <tr>
+                <th class="px-4 py-3 text-left font-semibold">SKU</th>
+                <th class="px-4 py-3 text-left font-semibold">Name</th>
+                <th class="px-4 py-3 text-left font-semibold">Category</th>
+                <th class="px-4 py-3 text-right font-semibold">Qty On Hand</th>
+                <th class="px-4 py-3 text-right font-semibold">Cost</th>
+                <th class="px-4 py-3 text-right font-semibold">Retail Price</th>
+                <th class="px-4 py-3 text-right font-semibold">Margin %</th>
+                <th class="px-4 py-3 text-left font-semibold">Supplier</th>
+                <th class="px-4 py-3 text-right font-semibold">Reorder Pt</th>
+                <th class="px-4 py-3 text-left font-semibold">Status</th>
+                <th class="px-4 py-3 text-center font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="invTableBody" class="divide-y">
+              <tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">No products found</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Add/Edit Product Modal -->
+        <div id="productModal" class="modal-overlay hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="px-6 py-4 border-b flex items-center justify-between">
+              <h3 id="productModalTitle" class="font-semibold text-lg">Add Product</h3>
+              <button class="modal-close text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <form id="productForm" class="px-6 py-5 space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">SKU</label>
+                  <input name="sku" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Auto-generated if blank" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Product Name *</label>
+                  <input name="name" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Category *</label>
+                  <select name="category" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">Select…</option>
+                    <option>Recliner</option><option>Sofa</option><option>Dining Table</option>
+                    <option>Bed Frame</option><option>Desk</option><option>Mattress</option>
+                    <option>Decor</option><option>Wardrobe</option><option>Chair</option>
+                    <option>Outdoor</option><option>Dressing Table</option><option>Coffee Table</option>
+                    <option>Shelf</option><option>TV Unit</option><option>Storage</option><option>Lighting</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Brand</label>
+                  <input name="brand" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Supplier</label>
+                  <input name="supplier" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Local Manufacturer" />
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs text-gray-500 mb-1">Description</label>
+                  <textarea name="description" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Cost Price (₹)</label>
+                  <input name="cost_price" type="number" step="0.01" min="0" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Selling Price (₹) *</label>
+                  <input name="selling_price" type="number" step="0.01" min="0" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Quantity *</label>
+                  <input name="quantity" type="number" min="0" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Reorder Level</label>
+                  <input name="reorder_level" type="number" min="0" value="3" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Dimensions (L x W x H)</label>
+                  <input name="dimensions" type="text" placeholder="e.g. 180 x 90 x 76 cm" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Weight (kg)</label>
+                  <input name="weight" type="number" step="0.1" min="0" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Color / Finish</label>
+                  <input name="color" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <input type="hidden" name="image_path" value="" />
+              <input type="hidden" name="date_added" value="" />
+              <input type="hidden" name="last_updated" value="" />
+              <div class="flex justify-end gap-3 pt-2">
+                <button type="button" class="modal-close px-5 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-100">Cancel</button>
+                <button type="submit" class="bg-brand-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-brand-700">Save Product</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== LABELS PAGE ==================== -->
+      <section id="page-labels" class="page p-6 hidden">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-3">
+            <input id="labelSearch" type="text" placeholder="Search products for labels…"
+              class="px-4 py-2 border border-gray-300 rounded-xl text-sm w-72 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+            <select id="labelSize" class="px-3 py-2 border border-gray-300 rounded-xl text-sm">
+              <option value="3x2">3&quot; x 2&quot;</option>
+              <option value="4x2">4&quot; x 2&quot;</option>
+              <option value="2x1">2&quot; x 1&quot;</option>
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <button id="btnSelectAllLabels" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm hover:bg-gray-200">Select All</button>
+            <button id="btnPrintLabels" class="bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-brand-700 disabled:opacity-50" disabled>
+              Print Selected Labels
+            </button>
+          </div>
+        </div>
+
+        <div id="labelProductList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+          <!-- Product label-select cards injected by JS -->
+        </div>
+
+      </section>
+
+      <!-- ==================== DASHBOARD PAGE ==================== -->
+      <section id="page-sales" class="page p-5 hidden">
+
+        <!-- ROW 1: Today's Takings (left) + Sales Graph placeholder (right) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+
+          <!-- Today's Takings -->
+          <div class="bg-white rounded-lg shadow-sm border p-5">
+            <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <span class="text-teal-600 text-lg">₹</span> Today's Takings
+            </h3>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                <div class="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m6-7v7"/></svg>
+                </div>
+                <div>
+                  <p class="text-lg font-bold leading-tight" id="dashTodayCount">0</p>
+                  <p class="text-xs text-gray-500">Sales</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </div>
+                <div>
+                  <p class="text-lg font-bold leading-tight" id="dashToday">₹0</p>
+                  <p class="text-xs text-gray-500">Net Sales</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div>
+                  <p class="text-lg font-bold leading-tight" id="dashProfit">₹0</p>
+                  <p class="text-xs text-gray-500">Profit</p>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mt-3">
+              <div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>
+                </div>
+                <div>
+                  <p class="text-lg font-bold leading-tight" id="dashVoids">0</p>
+                  <p class="text-xs text-gray-500">Voids</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1"/></svg>
+                </div>
+                <div>
+                  <p class="text-lg font-bold leading-tight" id="dashCost">₹0</p>
+                  <p class="text-xs text-gray-500">Cost</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                </div>
+                <div>
+                  <p class="text-lg font-bold leading-tight" id="dashRefunds">0</p>
+                  <p class="text-xs text-gray-500">Refunds</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sales Graph (last 7 days bar chart) -->
+          <div class="bg-white rounded-lg shadow-sm border p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4"/></svg>
+                Sales Graph
+              </h3>
+              <span class="text-xs bg-teal-500 text-white px-3 py-1 rounded font-medium">Last 7 Days</span>
+            </div>
+            <div id="salesChart" class="min-h-[220px]">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ROW 2: Stats with circle icons (like reference) -->
+        <div class="bg-white rounded-lg shadow-sm border p-5 mb-4">
+          <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4"/></svg>
+            Stats
+          </h3>
+          <div class="grid grid-cols-3 lg:grid-cols-6 gap-3">
+            <div class="flex items-center gap-3 border rounded-lg p-3.5">
+              <div class="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              </div>
+              <div>
+                <p class="text-xl font-bold text-teal-600 leading-tight" id="dashInvGrade">—</p>
+                <p class="text-xs text-gray-500">Inventory Grade</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 border rounded-lg p-3.5">
+              <div class="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+              </div>
+              <div>
+                <p class="text-xl font-bold text-blue-600 leading-tight" id="dashMonthSales">₹0</p>
+                <p class="text-xs text-gray-500">Monthly Sales</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 border rounded-lg p-3.5">
+              <div class="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              </div>
+              <div>
+                <p class="text-xl font-bold text-green-600 leading-tight" id="dashMarginPct">0%</p>
+                <p class="text-xs text-gray-500">Average Margin</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 border rounded-lg p-3.5">
+              <div class="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+              </div>
+              <div>
+                <p class="text-xl font-bold text-blue-600 leading-tight" id="dashAvgTicket">₹0</p>
+                <p class="text-xs text-gray-500">Avg Ticket</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 border rounded-lg p-3.5">
+              <div class="w-11 h-11 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-indigo-500" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+              </div>
+              <div>
+                <p class="text-xl font-bold text-indigo-600 leading-tight" id="dashAvgDaily">0</p>
+                <p class="text-xs text-gray-500">Avg Customers</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 border rounded-lg p-3.5">
+              <div class="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+              </div>
+              <div>
+                <p class="text-xl font-bold text-red-500 leading-tight" id="dashLowStock">0</p>
+                <p class="text-xs text-gray-500">Low Stock</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROW 3: Top Rank Items (left) + Payment Mix (right) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Top Rank Items -->
+          <div class="bg-white rounded-lg shadow-sm border">
+            <div class="px-5 py-3 border-b flex items-center justify-between">
+              <h3 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                <span class="text-amber-500 text-lg">★</span> Top Rank Items
+              </h3>
+            </div>
+            <div id="topProducts" class="divide-y text-sm" style="max-height:250px;overflow-y:auto">
+              <div class="px-5 py-5 text-center text-gray-400 text-sm">No sales yet</div>
+            </div>
+          </div>
+
+          <!-- Payment Mix -->
+          <div class="bg-white rounded-lg shadow-sm border">
+            <div class="px-5 py-3 border-b">
+              <h3 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+                Payment Mix
+              </h3>
+            </div>
+            <div id="paymentMix" class="p-5 flex items-center justify-center" style="min-height:220px">
+              <p class="text-gray-400 text-sm">No data</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== REPORTS PAGE ==================== -->
+      <section id="page-reports" class="page p-5 hidden">
+        <div class="flex items-center gap-4 mb-5">
+          <!-- Report Type Dropdown -->
+          <select id="reportType" class="bg-teal-500 text-white px-4 py-2.5 rounded-lg text-sm font-semibold cursor-pointer">
+            <option value="summary" selected>Summary</option>
+            <option value="sales">Sales Report</option>
+            <option value="day">Day Report</option>
+            <option value="tender">Tender Report</option>
+            <option value="lowstock">Low Stock Report</option>
+            <option value="category">Category Report</option>
+          </select>
+          <!-- Date Range -->
+          <div class="flex items-center gap-2 text-sm">
+            <span class="text-gray-500 font-medium">Range:</span>
+            <input id="rptStart" type="date" class="px-3 py-2 border rounded-lg text-sm" />
+            <span class="text-gray-400">to</span>
+            <input id="rptEnd" type="date" class="px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <button id="btnRunReport" class="bg-teal-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-teal-600 flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            Search
+          </button>
+          <button id="btnExportReport" class="bg-teal-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-teal-700 flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+            Export CSV
+          </button>
+          <button id="btnPrintReport" class="bg-gray-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-600 flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            Print
+          </button>
+        </div>
+
+        <!-- Report Header -->
+        <div class="text-center mb-5">
+          <h2 id="rptTitle" class="text-xl font-semibold text-gray-700">Summary - All - All</h2>
+          <p id="rptRange" class="text-sm text-gray-500">Range: --</p>
+        </div>
+
+        <!-- Report Table -->
+        <div class="bg-white rounded-lg shadow-sm border overflow-x-auto">
+          <table class="w-full text-sm" id="reportTable">
+            <thead id="rptHead" class="bg-[#3a7bd5] text-white text-xs uppercase tracking-wide">
+              <tr>
+                <th class="px-4 py-3 text-left"></th>
+                <th class="px-4 py-3 text-right"># Sales</th>
+                <th class="px-4 py-3 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody id="rptBody" class="divide-y">
+              <tr><td colspan="3" class="px-4 py-8 text-center text-gray-400 text-sm">Select a report and click Search</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== TRANSACTIONS (SALES LIST) PAGE ==================== -->
+      <section id="page-transactions" class="page p-5 hidden">
+        <!-- Header bar -->
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <h3 class="text-lg font-bold text-gray-800">View &amp; Search POS Transactions</h3>
+          <div class="flex-1"></div>
+          <span class="text-sm text-gray-500">Show</span>
+          <select id="txnPageSize" class="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400">
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <span class="text-sm text-gray-500">Entries</span>
+        </div>
+
+        <!-- Search / Filters -->
+        <div class="flex flex-wrap items-center gap-3 mb-4 bg-white p-4 rounded-lg shadow-sm border">
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-600">Search:</label>
+            <input id="txnSearch" type="text" placeholder="Receipt #, Customer, Cashier..."
+              class="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-600">From:</label>
+            <input id="txnDateFrom" type="date" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400" />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-600">To:</label>
+            <input id="txnDateTo" type="date" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400" />
+          </div>
+          <select id="txnPayFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400">
+            <option value="">All Payments</option>
+            <option value="Cash">Cash</option>
+            <option value="Card">Card</option>
+            <option value="UPI">UPI</option>
+            <option value="Other">Other</option>
+          </select>
+          <select id="txnStatusFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400">
+            <option value="">All Status</option>
+            <option value="Complete">Complete</option>
+            <option value="Voided">Voided</option>
+          </select>
+          <button id="btnTxnSearch" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            Search
+          </button>
+          <button id="btnTxnExport" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Export CSV
+          </button>
+        </div>
+
+        <!-- Transactions table -->
+        <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="txnTable">
+              <thead class="bg-[#5bc0de] text-white text-xs uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-3 text-left w-10"><input type="checkbox" id="txnCheckAll" class="rounded" /></th>
+                  <th class="px-4 py-3 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
+                  <th class="px-4 py-3 text-left cursor-pointer hover:bg-white/10" data-sort="receipt">Ref</th>
+                  <th class="px-4 py-3 text-left cursor-pointer hover:bg-white/10" data-sort="cashier">User</th>
+                  <th class="px-4 py-3 text-left cursor-pointer hover:bg-white/10" data-sort="method">Payment</th>
+                  <th class="px-4 py-3 text-right cursor-pointer hover:bg-white/10" data-sort="items"># Items</th>
+                  <th class="px-4 py-3 text-left cursor-pointer hover:bg-white/10" data-sort="date">ProcessDt</th>
+                  <th class="px-4 py-3 text-right cursor-pointer hover:bg-white/10" data-sort="total">Total</th>
+                  <th class="px-4 py-3 text-center">Status</th>
+                  <th class="px-4 py-3 text-center w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="txnTableBody" class="divide-y divide-gray-100">
+                <tr><td colspan="10" class="px-4 py-10 text-center text-gray-400 text-sm">Loading transactions...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+            <div id="txnInfo" class="text-sm text-gray-500">Showing 0 to 0 of 0 entries</div>
+            <div class="flex items-center gap-1" id="txnPagination">
+              <!-- Pagination buttons injected by JS -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== SETTINGS PAGE ==================== -->
+      <section id="page-settings" class="page p-5 hidden">
+
+        <!-- ===== SUB: Staff & Admins ===== -->
+        <div id="settings-staff" class="settings-sub">
+          <div class="bg-[#3a7bd5] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              Manage POS Users and Administrators
+            </span>
+            <button id="btnAddUser" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+              Add User
+            </button>
+          </div>
+          <div class="bg-white border-x px-4 py-3 flex items-center gap-3">
+            <span class="text-xs text-gray-500 font-medium">Search:</span>
+            <input id="userSearch" type="text" placeholder="Username or name…"
+              class="px-3 py-1.5 border border-gray-300 rounded text-xs w-48 focus:ring-1 focus:ring-blue-400 focus:outline-none" />
+          </div>
+          <div class="bg-white rounded-b-lg shadow-sm border-x border-b overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead class="bg-[#3a7bd5] text-white text-[10px] uppercase tracking-wide">
+                <tr>
+                  <th class="px-3 py-2.5 text-left font-semibold">ID</th>
+                  <th class="px-3 py-2.5 text-left font-semibold">Username</th>
+                  <th class="px-3 py-2.5 text-left font-semibold">Name</th>
+                  <th class="px-3 py-2.5 text-left font-semibold">Role</th>
+                  <th class="px-3 py-2.5 text-left font-semibold">Phone</th>
+                  <th class="px-3 py-2.5 text-center font-semibold">Status</th>
+                  <th class="px-3 py-2.5 text-center font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody" class="divide-y">
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-[10px] text-gray-400 mt-2">Roles: <strong>admin</strong> = full access | <strong>manager</strong> = POS + view inventory | <strong>staff</strong> = POS only</p>
+        </div>
+
+        <!-- ===== SUB: Store Settings ===== -->
+        <div id="settings-store" class="settings-sub hidden">
+          <div class="max-w-2xl">
+            <div class="bg-white rounded-lg shadow-sm border">
+              <div class="bg-[#3a7bd5] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                Store Information
+              </div>
+              <form id="settingsForm" class="p-5 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="col-span-2">
+                    <label class="block text-xs text-gray-500 mb-1">Store Name</label>
+                    <input name="store_name" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div class="col-span-2">
+                    <label class="block text-xs text-gray-500 mb-1">Address</label>
+                    <input name="address" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Phone</label>
+                    <input name="phone" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Email</label>
+                    <input name="email" type="email" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Tax Name</label>
+                    <input name="tax_name" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Tax Rate (%)</label>
+                    <input name="tax_rate" type="number" step="0.001" min="0" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Currency Symbol</label>
+                    <input name="currency_symbol" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Low Stock Threshold</label>
+                    <input name="low_stock_threshold" type="number" min="0" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div class="col-span-2">
+                    <label class="block text-xs text-gray-500 mb-1">Receipt Footer Message</label>
+                    <textarea name="receipt_footer" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
+                  </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                  <button type="submit" class="bg-teal-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-teal-600 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SUB: POS Settings ===== -->
+        <div id="settings-pos" class="settings-sub hidden">
+          <div class="max-w-2xl">
+            <div class="bg-white rounded-lg shadow-sm border">
+              <div class="bg-[#3a7bd5] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m5-9v9m4-9v9m5-9l2 9"/></svg>
+                POS & Payment Settings
+              </div>
+              <form id="posSettingsForm" class="p-5 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Default Cashier Name</label>
+                    <input name="cashier_name" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Default Label Size</label>
+                    <select name="default_label_size" class="w-full border rounded-lg px-3 py-2 text-sm">
+                      <option value="2x1">2&quot; x 1&quot;</option>
+                      <option value="3x2">3&quot; x 2&quot;</option>
+                      <option value="4x2">4&quot; x 2&quot;</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">UPI ID</label>
+                    <input name="upi_id" type="text" placeholder="e.g. yourstore@ybl" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">UPI Display Name</label>
+                    <input name="upi_name" type="text" placeholder="Store name shown on UPI" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div class="col-span-2">
+                    <label class="block text-xs text-gray-500 mb-1">Store WhatsApp Number</label>
+                    <input name="whatsapp_number" type="text" placeholder="e.g. 918074052455 (country code + number, no +)" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                  <button type="submit" class="bg-teal-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-teal-600 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SUB: Suppliers ===== -->
+        <div id="settings-suppliers" class="settings-sub hidden">
+          <div class="bg-[#5bc0de] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+              Manage your suppliers
+            </span>
+            <button id="btnAddSupplier" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+              Add
+            </button>
+          </div>
+          <div class="bg-white rounded-b-lg shadow-sm border border-t-0">
+            <!-- Search + Show Entries -->
+            <div class="flex items-center justify-between px-4 py-3 border-b">
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Search:</label>
+                <input id="supplierSearch" type="text" placeholder="Name, contact..."
+                  class="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500">Show</span>
+                <select id="supplierPageSize" class="px-2 py-1 border rounded text-xs">
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                </select>
+                <span class="text-xs text-gray-500">Entries</span>
+              </div>
+            </div>
+            <!-- Table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm" id="suppliersTable">
+                <thead class="bg-[#5bc0de] text-white text-xs uppercase tracking-wide">
+                  <tr>
+                    <th class="px-4 py-2.5 text-left w-10"><input type="checkbox" id="supplierCheckAll" class="rounded" /></th>
+                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
+                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="name">Name</th>
+                    <th class="px-4 py-2.5 text-left">Contact</th>
+                    <th class="px-4 py-2.5 text-left">Phone</th>
+                    <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="items"># Items</th>
+                    <th class="px-4 py-2.5 text-center w-24">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="suppliersTableBody" class="divide-y divide-gray-100">
+                  <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 text-xs">Loading suppliers...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- Pagination -->
+            <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+              <div id="supplierInfo" class="text-xs text-gray-500">Showing 0 entries</div>
+              <div class="flex items-center gap-1" id="supplierPagination"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SUB: Customers ===== -->
+        <div id="settings-customers" class="settings-sub hidden">
+          <div class="bg-[#3a7bd5] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              Manage your customers
+            </span>
+            <button id="btnAddCustomer" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+              Add
+            </button>
+          </div>
+          <div class="bg-white rounded-b-lg shadow-sm border border-t-0">
+            <!-- Search + Show Entries -->
+            <div class="flex items-center justify-between px-4 py-3 border-b">
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Search:</label>
+                <input id="customerSearch" type="text" placeholder="Name, phone, email..."
+                  class="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500">Show</span>
+                <select id="customerPageSize" class="px-2 py-1 border rounded text-xs">
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                </select>
+                <span class="text-xs text-gray-500">Entries</span>
+              </div>
+            </div>
+            <!-- Table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm" id="customersTable">
+                <thead class="bg-[#3a7bd5] text-white text-xs uppercase tracking-wide">
+                  <tr>
+                    <th class="px-4 py-2.5 text-left w-10"><input type="checkbox" id="customerCheckAll" class="rounded" /></th>
+                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
+                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="name">Name</th>
+                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="phone">Phone</th>
+                    <th class="px-4 py-2.5 text-left">Email</th>
+                    <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="orders"># Orders</th>
+                    <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="spent">Total Spent</th>
+                    <th class="px-4 py-2.5 text-center w-24">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="customersTableBody" class="divide-y divide-gray-100">
+                  <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400 text-xs">Loading customers...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- Pagination -->
+            <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+              <div id="customerInfo" class="text-xs text-gray-500">Showing 0 entries</div>
+              <div class="flex items-center gap-1" id="customerPagination"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ADD/EDIT CUSTOMER MODAL ===== -->
+        <div id="customerModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4">
+            <div class="bg-[#3a7bd5] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+              <h3 id="customerModalTitle" class="font-semibold text-sm">Add Customer</h3>
+              <button id="customerModalClose" onclick="document.getElementById('customerModal').classList.add('hidden')" class="text-white/70 hover:text-white text-xl">&times;</button>
+            </div>
+            <form id="customerForm" class="p-5 space-y-4">
+              <input type="hidden" name="customer_id" />
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Phone *</label>
+                  <input name="phone" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. 9876543210" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Name</label>
+                  <input name="name" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Email</label>
+                <input name="email" type="email" class="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Address</label>
+                <textarea name="address" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Notes</label>
+                <textarea name="notes" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
+              </div>
+              <div class="flex justify-end gap-2 pt-2">
+                <button type="button" id="btnCancelCustomer" onclick="document.getElementById('customerModal').classList.add('hidden')" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-xs hover:bg-gray-200">Cancel</button>
+                <button type="submit" class="bg-teal-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-teal-600 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- ===== ADD/EDIT SUPPLIER MODAL ===== -->
+        <div id="supplierModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4">
+            <div class="bg-[#5bc0de] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+              <h3 id="supplierModalTitle" class="font-semibold text-sm">Add Supplier</h3>
+              <button id="supplierModalClose" class="text-white/70 hover:text-white text-xl">&times;</button>
+            </div>
+            <form id="supplierForm" class="p-5 space-y-4">
+              <input type="hidden" name="supplier_id" />
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Supplier Name *</label>
+                <input name="name" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. RNDC" />
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Contact Person</label>
+                  <input name="contact_person" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Phone</label>
+                  <input name="phone" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Email</label>
+                <input name="email" type="email" class="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Address</label>
+                <textarea name="address" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Notes</label>
+                <textarea name="notes" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
+              </div>
+              <div class="flex justify-end gap-2 pt-2">
+                <button type="button" id="btnCancelSupplier" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-xs hover:bg-gray-200">Cancel</button>
+                <button type="submit" class="bg-teal-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-teal-600 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- ===== ADD/EDIT USER MODAL ===== -->
+        <div id="userModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg mx-4">
+            <div class="bg-[#3a7bd5] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+              <h3 id="userModalTitle" class="font-semibold text-sm">Add User</h3>
+              <button id="userModalClose" class="text-white/70 hover:text-white text-xl">&times;</button>
+            </div>
+            <form id="userForm" class="p-5 space-y-4">
+              <input type="hidden" name="user_id" />
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Username *</label>
+                  <input name="username" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Full Name *</label>
+                  <input name="name" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1" id="pwLabel">Password *</label>
+                  <input name="password" type="password" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Mobile</label>
+                  <input name="phone" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Role *</label>
+                  <select name="role" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="staff">Staff (POS only)</option>
+                    <option value="manager">Manager (POS + view inventory)</option>
+                    <option value="admin">Administrator (full access)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Status</label>
+                  <select name="active" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="true">Active</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Dashboard Permissions (visual summary) -->
+              <div class="border rounded-lg overflow-hidden">
+                <div class="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600">Dashboard Permissions</div>
+                <table class="w-full text-xs">
+                  <thead class="bg-gray-50 border-t">
+                    <tr><th class="px-4 py-1.5 text-left text-gray-500">Section</th><th class="px-4 py-1.5 text-left text-gray-500">Permissions</th></tr>
+                  </thead>
+                  <tbody id="permPreview" class="divide-y">
+                    <tr><td class="px-4 py-2">Dashboard</td><td class="px-4 py-2 perm-dash">—</td></tr>
+                    <tr><td class="px-4 py-2">POS Register</td><td class="px-4 py-2 perm-pos">—</td></tr>
+                    <tr><td class="px-4 py-2">Inventory</td><td class="px-4 py-2 perm-inv">—</td></tr>
+                    <tr><td class="px-4 py-2">Labels</td><td class="px-4 py-2 perm-label">—</td></tr>
+                    <tr><td class="px-4 py-2">Settings</td><td class="px-4 py-2 perm-settings">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="flex justify-end gap-2 pt-1">
+                <button type="button" id="btnCancelUser" class="px-4 py-2 rounded-lg text-xs text-gray-600 hover:bg-gray-100 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+                  Cancel
+                </button>
+                <button type="submit" class="bg-teal-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-teal-600 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </section>
+
+    </div><!-- end pageContainer -->
+  </main>
+
+  <!-- ===== LABEL PRINT AREA (direct child of body for print CSS) ===== -->
+  <div id="labelPreview" class="hidden">
+    <!-- Labels rendered here for printing -->
+  </div>
+
+  <!-- ===== CUSTOMER PHONE DROPDOWN (body-level to avoid overflow clipping) ===== -->
+  <div id="custPhoneDropdown" class="hidden fixed w-64 bg-white border border-gray-200 rounded-lg shadow-2xl max-h-52 overflow-y-auto" style="z-index:9999;"></div>
+
+  <!-- ===== RECEIPT PRINT AREA (hidden, used for printing) ===== -->
+  <div id="receiptPrintArea" class="hidden print:block">
+    <!-- Dynamically filled for receipt printing -->
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-lg text-sm transition-all translate-y-20 opacity-0 z-50"></div>
+
+  <!-- ===== CONFIRM MODAL ===== -->
+  <div id="confirmModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm mx-4">
+      <p id="confirmMsg" class="text-sm mb-4"></p>
+      <div class="flex justify-end gap-3">
+        <button id="confirmCancel" class="px-4 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-100">Cancel</button>
+        <button id="confirmOk" class="bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-700">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HELD TRANSACTIONS MODAL ===== -->
+  <div id="heldModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h3 class="font-semibold">Held Transactions</h3>
+        <button class="modal-close text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+      </div>
+      <div id="heldList" class="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <p class="text-gray-400 text-sm">No held transactions</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== RECEIPT VIEW MODAL ===== -->
+  <div id="receiptModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] flex flex-col">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h3 class="font-semibold">Receipt</h3>
+        <div class="flex gap-2">
+          <button id="btnWhatsAppReceipt" class="bg-green-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-green-600 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            WhatsApp
+          </button>
+          <button id="btnPrintReceipt" class="bg-brand-600 text-white px-3 py-1 rounded-lg text-xs hover:bg-brand-700">Print</button>
+          <button id="btnVoidSale" class="hidden bg-red-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-red-600 flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18.364 5.636l-12.728 12.728M5.636 5.636l12.728 12.728"/></svg>
+            Void Sale
+          </button>
+          <button class="modal-close text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+      </div>
+      <div id="receiptContent" class="flex-1 overflow-y-auto px-6 py-4">
+        <!-- Receipt HTML -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CASH PAYMENT MODAL ===== -->
+  <div id="cashPayModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+      <!-- Header -->
+      <div class="bg-green-500 px-6 py-4 text-white">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            Cash Payment
+          </h3>
+          <button onclick="document.getElementById('cashPayModal').classList.add('hidden')" class="text-white/80 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div class="mt-2 text-center">
+          <div class="text-sm opacity-80">Amount Due</div>
+          <div id="cashModalTotal" class="text-3xl font-bold">₹0.00</div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="px-6 py-5">
+        <!-- Tendered Input -->
+        <div class="mb-4">
+          <label class="text-sm font-semibold text-gray-600 mb-1.5 block">Cash Tendered</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg font-bold">₹</span>
+            <input id="cashTendered" type="number" min="0" step="0.01" placeholder="0.00" autofocus
+              class="w-full pl-10 pr-4 py-3.5 border-2 border-gray-300 rounded-xl text-2xl font-bold text-right focus:ring-2 focus:ring-green-400 focus:border-green-400 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Quick Cash Buttons -->
+        <div class="mb-4">
+          <div class="text-xs font-medium text-gray-500 mb-2">Quick Amount</div>
+          <div class="grid grid-cols-4 gap-2" id="quickCashBtns">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Change Display -->
+        <div id="cashChangeBox" class="rounded-xl p-4 text-center bg-gray-50 border-2 border-dashed border-gray-200">
+          <div class="text-sm text-gray-500 mb-1">Change Due</div>
+          <div id="changeAmount" class="text-3xl font-bold text-gray-400">₹0.00</div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 pb-5">
+        <button id="btnCashConfirm" class="w-full bg-green-500 text-white py-3.5 rounded-xl text-lg font-bold hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg" disabled>
+          Confirm Payment
+        </button>
+        <button onclick="document.getElementById('cashPayModal').classList.add('hidden')" class="w-full mt-2 text-gray-500 text-sm hover:text-gray-700 py-1">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== WHATSAPP SEND MODAL ===== -->
+  <div id="whatsappModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm mx-4">
+      <h3 class="font-semibold text-sm mb-3 flex items-center gap-2">
+        <svg class="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Send Receipt via WhatsApp
+      </h3>
+      <p class="text-xs text-gray-500 mb-3">Enter the customer's WhatsApp number to send this receipt.</p>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Customer WhatsApp Number</label>
+          <input id="waCustomerPhone" type="tel" placeholder="e.g. 919876543210" class="w-full border rounded-lg px-3 py-2 text-sm" />
+          <p class="text-[10px] text-gray-400 mt-1">Country code + number, no + or spaces (e.g. 91XXXXXXXXXX)</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="btnWaSendCustomer" class="flex-1 bg-green-500 text-white py-2 rounded-xl text-sm font-medium hover:bg-green-600">
+            Send to Customer
+          </button>
+          <button id="btnWaSendStore" class="flex-1 bg-gray-100 text-gray-700 py-2 rounded-xl text-sm font-medium hover:bg-gray-200">
+            Send to Store
+          </button>
+        </div>
+        <button id="btnWaCancel" class="w-full text-gray-500 text-xs hover:underline">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== UPI QR PAYMENT MODAL ===== -->
+  <div id="upiModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm mx-4 text-center">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-sm flex items-center gap-2">
+          <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          UPI Payment
+        </h3>
+        <button id="upiModalClose" class="text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+      </div>
+
+      <div class="bg-orange-50 border-2 border-orange-200 rounded-2xl p-4 mb-4">
+        <p class="text-xs text-gray-500 mb-2">Scan to pay</p>
+        <div class="text-2xl font-bold text-gray-900 mb-3" id="upiAmount">₹0.00</div>
+        <div id="upiQrCanvas" class="flex justify-center mb-3">
+          <!-- QR code rendered here -->
+        </div>
+        <p class="text-xs text-gray-500">UPI ID: <span id="upiIdDisplay" class="font-mono font-medium text-gray-700">--</span></p>
+        <p class="text-xs text-gray-400 mt-1" id="upiNameDisplay"></p>
+      </div>
+
+      <p class="text-xs text-gray-500 mb-3">Customer scans this QR with Google Pay, PhonePe, Paytm or any UPI app</p>
+
+      <div class="space-y-2">
+        <button id="btnUpiPaymentDone" class="w-full bg-green-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-green-600">
+          Payment Received — Complete Sale
+        </button>
+        <button id="btnUpiCancel" class="w-full text-gray-500 text-xs hover:underline">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS Modules -->
+  <script src="/static/js/app.js"></script>
+  <script src="/static/js/inventory.js"></script>
+  <script src="/static/js/pos.js"></script>
+  <script src="/static/js/labels.js"></script>
+  <script src="/static/js/sales.js"></script>
+  <script src="/static/js/reports.js"></script>
+  <script src="/static/js/transactions.js"></script>
+  <script src="/static/js/settings.js"></script>
+  <script src="/static/js/suppliers.js"></script>
+  <script src="/static/js/customers.js"></script>
+</body>
+</html>
