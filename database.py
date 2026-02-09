@@ -126,6 +126,11 @@ class PgConnectionWrapper:
         # For INSERT OR IGNORE, we add ON CONFLICT DO NOTHING before VALUES or at end
         # Actually the regex above removed OR IGNORE but didn't add ON CONFLICT.
         # Let me handle this differently with a flag
+
+        # SQLite scalar MAX(a, b) → PostgreSQL GREATEST(a, b)
+        # Only replace when MAX has two arguments (scalar), not single-arg aggregate
+        sql = re.sub(r'\bMAX\s*\(([^,)]+),', r'GREATEST(\1,', sql, flags=re.IGNORECASE)
+
         return sql
 
     # Tables with SERIAL id columns (for RETURNING id)
