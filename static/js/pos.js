@@ -721,6 +721,9 @@ const POS = {
     // Recall
     document.getElementById('btnRecallSale').onclick = () => POS.showHeld();
 
+    // Generate Quote
+    document.getElementById('btnGenerateQuote').onclick = () => POS.generateQuote();
+
     // UPI modal buttons — use onclick to avoid duplicate listeners on re-init
     document.getElementById('btnUpiPaymentDone').onclick = () => {
       document.getElementById('upiModal').classList.add('hidden');
@@ -857,6 +860,205 @@ const POS = {
     } catch (e) {
       App.toast('Sale failed!');
     }
+  },
+
+  // --- Quote Generation (A4 PDF-style) ---
+
+  generateQuote() {
+    if (this.cart.length === 0) {
+      App.toast('Add items to cart before generating a quote');
+      return;
+    }
+
+    const s = App.settings;
+    const sym = s.currency_symbol || '₹';
+    const taxRate = parseFloat(s.tax_rate || 0);
+    const taxName = App.taxName ? App.taxName() : `GST (${taxRate}%)`;
+
+    // Generate quote number
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const quoteNum = `QT-${dateStr}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+    // Customer info from POS fields
+    const custName = document.getElementById('custName')?.value || '';
+    const custPhone = document.getElementById('custPhone')?.value || '';
+    const custEmail = document.getElementById('custEmail')?.value || '';
+
+    // Calculate totals
+    const subtotal = this.getSubtotal();
+    const totalDiscount = this.getTotalDiscount();
+    const tax = this.getTax();
+    const grandTotal = this.getTotal();
+
+    // Build item rows
+    const itemRows = this.cart.map((c, idx) => {
+      const lineTotal = c.price * c.quantity;
+      const disc = this.getItemDiscount(c);
+      const finalTotal = lineTotal - disc;
+      const itemTax = finalTotal * (taxRate / 100);
+      const itemGross = finalTotal + itemTax;
+      const hasDiscount = c.discountType !== 'none' && disc > 0;
+
+      return `
+        <tr style="${idx % 2 === 0 ? '' : 'background:#f8fafc;'}">
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:13px;">${idx + 1}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
+            <div style="font-weight:600;color:#1f2937;font-size:13px;">${esc(c.name)}</div>
+            <div style="font-size:11px;color:#9ca3af;">${esc(c.sku)}</div>
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px;">${c.quantity}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(c.price)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">
+            ${hasDiscount ? `<span style="color:#ef4444;font-size:11px;">-${App.currency(disc)}</span>` : '—'}
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(itemTax)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;font-size:13px;">${App.currency(itemGross)}</td>
+        </tr>`;
+    }).join('');
+
+    // Format date nicely
+    const formattedDate = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const validUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+      .toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const html = `
+      <div class="quote-a4" style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#1f2937;line-height:1.5;">
+
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:20px;border-bottom:3px solid #4f46e5;">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <img src="/static/img/logo.svg" alt="NLF" style="width:64px;height:64px;border-radius:10px;" />
+            <div>
+              <div style="font-size:22px;font-weight:800;color:#1f2937;letter-spacing:0.5px;">${esc(s.store_name || 'Next Level Furniture')}</div>
+              <div style="font-size:12px;color:#6b7280;margin-top:2px;">${esc(s.address || '')}</div>
+              <div style="font-size:12px;color:#6b7280;">${esc(s.phone || '')}${s.email ? ' | ' + esc(s.email) : ''}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:28px;font-weight:800;color:#4f46e5;letter-spacing:1px;">QUOTATION</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+              <strong>Quote #:</strong> ${esc(quoteNum)}<br/>
+              <strong>Date:</strong> ${formattedDate}<br/>
+              <strong>Valid Until:</strong> ${validUntil}
+            </div>
+          </div>
+        </div>
+
+        <!-- Customer Info -->
+        ${custName || custPhone ? `
+        <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:20px;">
+          <div style="font-size:11px;font-weight:700;color:#4f46e5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Quotation For</div>
+          ${custName ? `<div style="font-size:15px;font-weight:700;color:#1f2937;">${esc(custName)}</div>` : ''}
+          ${custPhone ? `<div style="font-size:13px;color:#6b7280;">Phone: ${esc(custPhone)}</div>` : ''}
+          ${custEmail ? `<div style="font-size:13px;color:#6b7280;">Email: ${esc(custEmail)}</div>` : ''}
+        </div>
+        ` : ''}
+
+        <!-- Items Table -->
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+          <thead>
+            <tr style="background:#4f46e5;color:#fff;">
+              <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:40px;">#</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Item Description</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:50px;">Qty</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:90px;">Unit Price</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">Discount</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">${esc(taxName.replace(/\(.*/, '').trim())}</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:100px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+          </tbody>
+        </table>
+
+        <!-- Totals -->
+        <div style="display:flex;justify-content:flex-end;margin-bottom:30px;">
+          <div style="width:300px;">
+            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
+              <span style="color:#6b7280;">Subtotal</span>
+              <span style="font-weight:600;">${App.currency(subtotal)}</span>
+            </div>
+            ${totalDiscount > 0 ? `
+            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#ef4444;">
+              <span>Total Discount</span>
+              <span style="font-weight:600;">-${App.currency(totalDiscount)}</span>
+            </div>` : ''}
+            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
+              <span style="color:#6b7280;">${esc(taxName)} (${taxRate}%)</span>
+              <span style="font-weight:600;">${App.currency(tax)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;border-top:2px solid #4f46e5;margin-top:6px;">
+              <span style="color:#4f46e5;">TOTAL</span>
+              <span style="color:#4f46e5;">${App.currency(grandTotal)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Amount in Words -->
+        <div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 16px;margin-bottom:24px;font-size:12px;">
+          <strong>Amount in Words:</strong> ${esc(POS.numberToWords(Math.round(grandTotal)))} Rupees Only
+        </div>
+
+        <!-- Terms & Conditions -->
+        <div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:auto;">
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Terms & Conditions</div>
+          <ol style="font-size:11px;color:#6b7280;margin:0;padding-left:16px;line-height:1.8;">
+            <li>This quotation is valid for 7 days from the date of issue.</li>
+            <li>Prices are inclusive of ${esc(taxName.replace(/\(.*/, '').trim())} as applicable.</li>
+            <li>Delivery charges, if any, will be communicated separately.</li>
+            <li>Payment terms: Full payment at the time of purchase.</li>
+            <li>Product availability is subject to stock at the time of order confirmation.</li>
+          </ol>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;">
+          <div style="font-size:12px;color:#6b7280;">Thank you for your interest in ${esc(s.store_name || 'our products')}!</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">${esc(s.phone || '')}${s.email ? ' | ' + esc(s.email) : ''}</div>
+        </div>
+      </div>
+    `;
+
+    // Show in modal
+    document.getElementById('quoteContent').innerHTML = html;
+    document.getElementById('quoteModal').classList.remove('hidden');
+
+    // Print handler
+    document.getElementById('btnPrintQuote').onclick = () => {
+      const printArea = document.getElementById('quotePrintArea');
+      printArea.innerHTML = html;
+      printArea.classList.remove('hidden');
+      setTimeout(() => {
+        window.print();
+        printArea.classList.add('hidden');
+      }, 200);
+    };
+
+    // Close handler
+    document.getElementById('quoteModalClose').onclick = () => {
+      document.getElementById('quoteModal').classList.add('hidden');
+    };
+  },
+
+  // --- Number to Words (Indian format) ---
+  numberToWords(num) {
+    if (num === 0) return 'Zero';
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+      'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    function convert(n) {
+      if (n < 20) return ones[n];
+      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+      if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' and ' + convert(n % 100) : '');
+      if (n < 100000) return convert(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '');
+      if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '');
+      return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '');
+    }
+
+    return convert(Math.abs(Math.round(num)));
   },
 
   showReceipt(sale) {

@@ -120,7 +120,7 @@
 
 /* --- Print: hide everything except print areas --- */
 @media print {
-  body > *:not(#receiptPrintArea):not(#labelPreview) {
+  body > *:not(#receiptPrintArea):not(#labelPreview):not(#quotePrintArea) {
     display: none !important;
   }
   #receiptPrintArea {
@@ -131,6 +131,10 @@
     flex-wrap: wrap;
     gap: 8px;
     padding: 0.25in;
+    background: #fff;
+  }
+  #quotePrintArea {
+    display: block !important;
     background: #fff;
   }
 }

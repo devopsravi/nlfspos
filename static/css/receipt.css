@@ -89,16 +89,44 @@
   margin-top: 8px;
 }
 
-/* Print mode — thermal 80mm */
+/* Print mode — receipt (thermal 80mm) or quote (A4) */
 @media print {
-  .receipt {
+  /* Hide everything */
+  body > *:not(#receiptPrintArea):not(#quotePrintArea) {
+    display: none !important;
+  }
+
+  /* Receipt — thermal 80mm */
+  #receiptPrintArea {
+    display: block !important;
+    background: #fff;
+  }
+  #receiptPrintArea .receipt {
     width: 80mm;
     max-width: 80mm;
     margin: 0;
     padding: 4mm;
   }
-  #receiptPrintArea {
+
+  /* Quote — A4 */
+  #quotePrintArea {
     display: block !important;
     background: #fff;
+  }
+  #quotePrintArea .quote-a4 {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    padding: 15mm 20mm;
+    box-sizing: border-box;
+    font-size: 13px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
   }
 }
