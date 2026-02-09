@@ -130,7 +130,7 @@ class PgConnectionWrapper:
 
     # Tables with SERIAL id columns (for RETURNING id)
     # Only tables where id is auto-generated — NOT inventory (sku PK), users (text PK), settings (key PK)
-    _SERIAL_TABLES = {"suppliers", "customers", "sales", "sale_items", "inventory_log", "purchases"}
+    _SERIAL_TABLES = {"suppliers", "customers", "sales", "sale_items", "inventory_log", "purchases", "purchase_orders", "purchase_order_items"}
 
     def execute(self, sql, params=None):
         """Execute SQL with automatic dialect translation."""
@@ -383,6 +383,38 @@ CREATE TABLE IF NOT EXISTS purchases (
     FOREIGN KEY (sku) REFERENCES inventory(sku)
 );
 
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number TEXT UNIQUE NOT NULL,
+    invoice_number TEXT DEFAULT '',
+    supplier_id INTEGER NOT NULL,
+    supplier_name TEXT DEFAULT '',
+    order_date TEXT NOT NULL,
+    expected_date TEXT DEFAULT '',
+    status TEXT DEFAULT 'draft',
+    notes TEXT DEFAULT '',
+    total_amount REAL DEFAULT 0,
+    received_date TEXT DEFAULT '',
+    received_by TEXT DEFAULT '',
+    receive_notes TEXT DEFAULT '',
+    created TEXT NOT NULL,
+    last_updated TEXT NOT NULL,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+);
+
+CREATE TABLE IF NOT EXISTS purchase_order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    sku TEXT NOT NULL,
+    product_name TEXT DEFAULT '',
+    quantity INTEGER DEFAULT 0,
+    received_qty INTEGER DEFAULT 0,
+    cost_price REAL DEFAULT 0,
+    line_total REAL DEFAULT 0,
+    FOREIGN KEY (order_id) REFERENCES purchase_orders(id),
+    FOREIGN KEY (sku) REFERENCES inventory(sku)
+);
+
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
 CREATE INDEX IF NOT EXISTS idx_sales_receipt ON sales(receipt_number);
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
@@ -390,6 +422,9 @@ CREATE INDEX IF NOT EXISTS idx_inventory_category ON inventory(category);
 CREATE INDEX IF NOT EXISTS idx_inventory_quantity ON inventory(quantity);
 CREATE INDEX IF NOT EXISTS idx_inventory_log_sku ON inventory_log(sku);
 CREATE INDEX IF NOT EXISTS idx_purchases_sku ON purchases(sku);
+CREATE INDEX IF NOT EXISTS idx_po_supplier ON purchase_orders(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_po_status ON purchase_orders(status);
+CREATE INDEX IF NOT EXISTS idx_poi_order ON purchase_order_items(order_id);
 """
 
 PG_SCHEMA = """
@@ -519,6 +554,38 @@ CREATE TABLE IF NOT EXISTS purchases (
     FOREIGN KEY (sku) REFERENCES inventory(sku)
 );
 
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id SERIAL PRIMARY KEY,
+    order_number TEXT UNIQUE NOT NULL,
+    invoice_number TEXT DEFAULT '',
+    supplier_id INTEGER NOT NULL,
+    supplier_name TEXT DEFAULT '',
+    order_date TEXT NOT NULL,
+    expected_date TEXT DEFAULT '',
+    status TEXT DEFAULT 'draft',
+    notes TEXT DEFAULT '',
+    total_amount DOUBLE PRECISION DEFAULT 0,
+    received_date TEXT DEFAULT '',
+    received_by TEXT DEFAULT '',
+    receive_notes TEXT DEFAULT '',
+    created TEXT NOT NULL,
+    last_updated TEXT NOT NULL,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+);
+
+CREATE TABLE IF NOT EXISTS purchase_order_items (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL,
+    sku TEXT NOT NULL,
+    product_name TEXT DEFAULT '',
+    quantity INTEGER DEFAULT 0,
+    received_qty INTEGER DEFAULT 0,
+    cost_price DOUBLE PRECISION DEFAULT 0,
+    line_total DOUBLE PRECISION DEFAULT 0,
+    FOREIGN KEY (order_id) REFERENCES purchase_orders(id),
+    FOREIGN KEY (sku) REFERENCES inventory(sku)
+);
+
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
 CREATE INDEX IF NOT EXISTS idx_sales_receipt ON sales(receipt_number);
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
@@ -526,6 +593,9 @@ CREATE INDEX IF NOT EXISTS idx_inventory_category ON inventory(category);
 CREATE INDEX IF NOT EXISTS idx_inventory_quantity ON inventory(quantity);
 CREATE INDEX IF NOT EXISTS idx_inventory_log_sku ON inventory_log(sku);
 CREATE INDEX IF NOT EXISTS idx_purchases_sku ON purchases(sku);
+CREATE INDEX IF NOT EXISTS idx_po_supplier ON purchase_orders(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_po_status ON purchase_orders(status);
+CREATE INDEX IF NOT EXISTS idx_poi_order ON purchase_order_items(order_id);
 """
 
 
@@ -581,8 +651,38 @@ def _run_sqlite_migrations(conn):
         created TEXT NOT NULL, FOREIGN KEY (sku) REFERENCES inventory(sku))""")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_log_sku ON inventory_log(sku)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_purchases_sku ON purchases(sku)")
+
+    # Purchase orders tables
+    conn.execute("""CREATE TABLE IF NOT EXISTS purchase_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_number TEXT UNIQUE NOT NULL, invoice_number TEXT DEFAULT '',
+        supplier_id INTEGER NOT NULL,
+        supplier_name TEXT DEFAULT '', order_date TEXT NOT NULL, expected_date TEXT DEFAULT '',
+        status TEXT DEFAULT 'draft', notes TEXT DEFAULT '', total_amount REAL DEFAULT 0,
+        received_date TEXT DEFAULT '', received_by TEXT DEFAULT '', receive_notes TEXT DEFAULT '',
+        created TEXT NOT NULL, last_updated TEXT NOT NULL,
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id))""")
+    # Migration: add invoice_number to existing purchase_orders tables
+    try:
+        po_cols = {row[1] for row in conn.execute("PRAGMA table_info(purchase_orders)").fetchall()}
+        if 'invoice_number' not in po_cols:
+            conn.execute("ALTER TABLE purchase_orders ADD COLUMN invoice_number TEXT DEFAULT ''")
+            print("[DB] Migration: added column purchase_orders.invoice_number")
+    except Exception:
+        pass
+    conn.execute("""CREATE TABLE IF NOT EXISTS purchase_order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL, sku TEXT NOT NULL, product_name TEXT DEFAULT '',
+        quantity INTEGER DEFAULT 0, received_qty INTEGER DEFAULT 0,
+        cost_price REAL DEFAULT 0, line_total REAL DEFAULT 0,
+        FOREIGN KEY (order_id) REFERENCES purchase_orders(id),
+        FOREIGN KEY (sku) REFERENCES inventory(sku))""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_po_supplier ON purchase_orders(supplier_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_po_status ON purchase_orders(status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_poi_order ON purchase_order_items(order_id)")
+
     conn.commit()
-    print("[DB] Migration: ensured inventory_log and purchases tables exist")
+    print("[DB] Migration: ensured inventory_log, purchases, and purchase_orders tables exist")
 
     # Seed suppliers from inventory
     now = datetime.now().isoformat()
@@ -843,6 +943,16 @@ def export_all_data():
     rows = conn.execute("SELECT * FROM purchases ORDER BY date DESC").fetchall()
     data["purchases"] = [dict(r) for r in rows]
 
+    # Purchase orders + items
+    po_rows = conn.execute("SELECT * FROM purchase_orders ORDER BY created DESC").fetchall()
+    po_list = []
+    for po in po_rows:
+        order = dict(po)
+        items = conn.execute("SELECT * FROM purchase_order_items WHERE order_id = ?", (order["id"],)).fetchall()
+        order["items"] = [dict(i) for i in items]
+        po_list.append(order)
+    data["purchase_orders"] = po_list
+
     return data
 
 
@@ -1009,5 +1119,40 @@ def import_all_data(data):
             print(f"  [WARN] Purchase: {e}")
     conn.commit()
     print(f"  [IMPORT] Purchases: {imported['purchases']}")
+
+    # --- Purchase Orders + Items ---
+    imported["purchase_orders"] = 0
+    for po in data.get("purchase_orders", []):
+        try:
+            cursor = conn.execute(
+                "INSERT INTO purchase_orders (order_number, invoice_number, supplier_id, supplier_name, order_date, "
+                "expected_date, status, notes, total_amount, received_date, received_by, receive_notes, "
+                "created, last_updated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (po["order_number"], po.get("invoice_number", ""),
+                 int(po.get("supplier_id", 0)), po.get("supplier_name", ""),
+                 po["order_date"], po.get("expected_date", ""), po.get("status", "draft"),
+                 po.get("notes", ""), float(po.get("total_amount", 0)),
+                 po.get("received_date", ""), po.get("received_by", ""),
+                 po.get("receive_notes", ""), po.get("created", now), po.get("last_updated", now))
+            )
+            order_id = cursor.lastrowid
+            if order_id:
+                for item in po.get("items", []):
+                    conn.execute(
+                        "INSERT INTO purchase_order_items (order_id, sku, product_name, quantity, "
+                        "received_qty, cost_price, line_total) VALUES (?,?,?,?,?,?,?)",
+                        (order_id, item.get("sku", ""), item.get("product_name", ""),
+                         int(item.get("quantity", 0)), int(item.get("received_qty", 0)),
+                         float(item.get("cost_price", 0)), float(item.get("line_total", 0)))
+                    )
+            conn.commit()
+            imported["purchase_orders"] += 1
+        except Exception as e:
+            print(f"  [WARN] Purchase order {po.get('order_number')}: {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    print(f"  [IMPORT] Purchase orders: {imported['purchase_orders']}")
 
     return imported

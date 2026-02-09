@@ -124,6 +124,53 @@ const POS = {
     this.updateCartUI();
   },
 
+  _searchSkuTypeahead() {
+    const input = document.getElementById('posSkuInput');
+    const dropdown = document.getElementById('posSkuDropdown');
+    const query = (input?.value || '').trim().toLowerCase();
+
+    if (!query || query.length < 1) {
+      dropdown?.classList.add('hidden');
+      return;
+    }
+
+    const matches = this.products.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      p.sku.toLowerCase().includes(query) ||
+      (p.category || '').toLowerCase().includes(query)
+    ).slice(0, 10);
+
+    if (matches.length === 0) {
+      dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-400">No products found</div>';
+    } else {
+      dropdown.innerHTML = matches.map(p => `
+        <div class="sku-result-item px-3 py-2 hover:bg-teal-50 cursor-pointer flex items-center justify-between text-xs border-b last:border-b-0"
+             data-sku="${esc(p.sku)}">
+          <div>
+            <div class="font-medium text-gray-800">${esc(p.name)}</div>
+            <div class="text-gray-400">${esc(p.sku)}</div>
+          </div>
+          <div class="text-right">
+            <div class="font-bold text-teal-600">₹${Number(p.selling_price || 0).toLocaleString('en-IN')}</div>
+            <div class="text-gray-400">${p.quantity} in stock</div>
+          </div>
+        </div>`).join('');
+
+      dropdown.querySelectorAll('.sku-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const sku = item.dataset.sku;
+          const product = this.products.find(pr => pr.sku === sku);
+          if (product) {
+            this.addToCart(product);
+            input.value = '';
+            dropdown.classList.add('hidden');
+          }
+        });
+      });
+    }
+    dropdown.classList.remove('hidden');
+  },
+
   removeFromCart(sku) {
     this.cart = this.cart.filter(c => c.sku !== sku);
     this.updateCartUI();
@@ -603,31 +650,56 @@ const POS = {
       }
     });
 
-    // Stock Code "Add" button — look up by SKU and add
+    // Stock Code — typeahead search by name or SKU
+    this._skuSearchDebounce = null;
+    const skuInput = document.getElementById('posSkuInput');
+    const skuDropdown = document.getElementById('posSkuDropdown');
+
+    if (skuInput) {
+      skuInput.addEventListener('input', () => {
+        clearTimeout(this._skuSearchDebounce);
+        this._skuSearchDebounce = setTimeout(() => this._searchSkuTypeahead(), 200);
+      });
+
+      skuInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          // Select the first result if dropdown is showing
+          const first = skuDropdown?.querySelector('.sku-result-item');
+          if (first) { first.click(); }
+        } else if (e.key === 'Escape') {
+          skuDropdown?.classList.add('hidden');
+        }
+      });
+
+      // Hide dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!skuInput.contains(e.target) && !skuDropdown?.contains(e.target)) {
+          skuDropdown?.classList.add('hidden');
+        }
+      });
+    }
+
+    // "Add" button — still works for exact SKU entry
     document.getElementById('btnAddSku').onclick = async () => {
-      const sku = document.getElementById('posSkuInput')?.value?.trim();
-      if (!sku) return;
+      const query = skuInput?.value?.trim();
+      if (!query) return;
+      // Try exact SKU first
       try {
-        const res = await fetch(`/api/inventory/${encodeURIComponent(sku)}`);
+        const res = await fetch(`/api/inventory/${encodeURIComponent(query)}`);
         if (res.ok) {
           const product = await res.json();
           this.addToCart(product);
-          document.getElementById('posSkuInput').value = '';
-        } else {
-          App.toast('Product not found');
+          skuInput.value = '';
+          skuDropdown?.classList.add('hidden');
+          return;
         }
-      } catch (e) {
-        App.toast('Product not found');
-      }
+      } catch (e) { /* fall through */ }
+      // If not exact SKU, pick first match from search
+      const first = skuDropdown?.querySelector('.sku-result-item');
+      if (first) { first.click(); }
+      else { App.toast('Product not found'); }
     };
-
-    // Stock Code Enter key
-    document.getElementById('posSkuInput')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        document.getElementById('btnAddSku')?.click();
-      }
-    });
 
     // Category filters (both dropdowns sync)
     document.getElementById('posCategoryFilter')?.addEventListener('change', async () => {

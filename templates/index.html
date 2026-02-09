@@ -59,10 +59,30 @@
         <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m5-9v9m4-9v9m5-9l2 9"/></svg>
         POS Register
       </a>
-      <a href="#" data-page="inventory" data-perm="admin" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
-        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-        Inventory
-      </a>
+      <!-- Items with expandable sub-menu (admin only) -->
+      <div data-perm="admin" id="itemsMenuGroup">
+        <button id="itemsToggle" class="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-[#a0b4c8] hover:text-white hover:bg-white/5 transition border-l-[3px] border-transparent">
+          <span class="flex items-center gap-3">
+            <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            Items
+          </span>
+          <svg id="itemsChevron" class="w-4 h-4 opacity-50 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div id="itemsSubMenu" class="hidden pl-8 space-y-0.5 pb-2">
+          <a href="#" data-page="inventory" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Inventory
+          </a>
+          <a href="#" data-page="orders" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Orders
+          </a>
+          <a href="#" data-page="suppliers" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Suppliers
+          </a>
+          <a href="#" data-page="customers" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Customers
+          </a>
+        </div>
+      </div>
       <a href="#" data-page="transactions" data-perm="admin" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
         <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
         Sales
@@ -94,12 +114,6 @@
           </a>
           <a href="#" data-page="settings" data-sub="pos" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
             <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> POS Settings
-          </a>
-          <a href="#" data-page="settings" data-sub="suppliers" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
-            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Suppliers
-          </a>
-          <a href="#" data-page="settings" data-sub="customers" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
-            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span> Customers
           </a>
         </div>
       </div>
@@ -157,8 +171,11 @@
 
             <!-- Top bar: Stock Code + Stock Search -->
             <div class="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b flex-shrink-0">
-              <input id="posSkuInput" type="text" placeholder="Stock Code"
-                class="w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+              <div class="relative">
+                <input id="posSkuInput" type="text" placeholder="Search product or SKU..." autocomplete="off"
+                  class="w-56 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+                <div id="posSkuDropdown" class="hidden absolute left-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto"></div>
+              </div>
               <button id="btnAddSku" class="bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-600">Add</button>
               <div class="flex-1"></div>
               <input id="posSearch" type="text" placeholder="Stock Search"
@@ -546,6 +563,63 @@
                 </table>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Transaction Details Modal -->
+        <div id="txnDetailModal" class="modal-overlay hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[92vh] flex flex-col">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b flex items-center justify-between bg-[#3a7bd5] text-white rounded-t-2xl">
+              <h3 class="font-semibold text-lg">Transaction Details</h3>
+              <button id="txnDetailClose" class="text-white/80 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <!-- Sale Info -->
+            <div id="txnDetailInfo" class="px-6 py-4 border-b bg-gray-50 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm"></div>
+            <!-- Sub-tabs -->
+            <div class="flex border-b bg-white px-4 pt-2 gap-1">
+              <button class="txn-tab active" data-txntab="details">Details</button>
+              <button class="txn-tab" data-txntab="items">Items</button>
+              <button class="txn-tab" data-txntab="payments">Payments</button>
+              <button class="txn-tab" data-txntab="options">Options</button>
+            </div>
+            <!-- Tab Content -->
+            <div class="flex-1 overflow-y-auto p-5">
+              <!-- Details -->
+              <div id="txnTabDetails" class="txn-panel"></div>
+              <!-- Items -->
+              <div id="txnTabItems" class="txn-panel hidden"></div>
+              <!-- Payments -->
+              <div id="txnTabPayments" class="txn-panel hidden"></div>
+              <!-- Options -->
+              <div id="txnTabOptions" class="txn-panel hidden">
+                <h4 class="font-medium text-gray-700 mb-4">Options:</h4>
+                <div class="flex flex-wrap gap-3">
+                  <button id="txnOptPrint" class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    Print Receipt
+                  </button>
+                  <button id="txnOptInvoice" class="bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-600 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Generate Invoice
+                  </button>
+                  <button id="txnOptCSV" class="bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-600 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Download CSV
+                  </button>
+                  <button id="txnOptEmail" class="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Email Invoice
+                  </button>
+                  <button id="txnOptHistory" class="bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-600 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    History
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- Footer -->
+            <div id="txnDetailFooter" class="px-6 py-3 border-t flex justify-center gap-3"></div>
           </div>
         </div>
       </section>
@@ -1043,120 +1117,7 @@
           </div>
         </div>
 
-        <!-- ===== SUB: Suppliers ===== -->
-        <div id="settings-suppliers" class="settings-sub hidden">
-          <div class="bg-[#5bc0de] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
-            <span class="flex items-center gap-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-              Manage your suppliers
-            </span>
-            <button id="btnAddSupplier" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-              Add
-            </button>
-          </div>
-          <div class="bg-white rounded-b-lg shadow-sm border border-t-0">
-            <!-- Search + Show Entries -->
-            <div class="flex items-center justify-between px-4 py-3 border-b">
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-500">Search:</label>
-                <input id="supplierSearch" type="text" placeholder="Name, contact..."
-                  class="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none" />
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500">Show</span>
-                <select id="supplierPageSize" class="px-2 py-1 border rounded text-xs">
-                  <option value="10" selected>10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                </select>
-                <span class="text-xs text-gray-500">Entries</span>
-              </div>
-            </div>
-            <!-- Table -->
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm" id="suppliersTable">
-                <thead class="bg-[#5bc0de] text-white text-xs uppercase tracking-wide">
-                  <tr>
-                    <th class="px-4 py-2.5 text-left w-10"><input type="checkbox" id="supplierCheckAll" class="rounded" /></th>
-                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
-                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="name">Name</th>
-                    <th class="px-4 py-2.5 text-left">Contact</th>
-                    <th class="px-4 py-2.5 text-left">Phone</th>
-                    <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="items"># Items</th>
-                    <th class="px-4 py-2.5 text-center w-24">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="suppliersTableBody" class="divide-y divide-gray-100">
-                  <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 text-xs">Loading suppliers...</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <!-- Pagination -->
-            <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-              <div id="supplierInfo" class="text-xs text-gray-500">Showing 0 entries</div>
-              <div class="flex items-center gap-1" id="supplierPagination"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== SUB: Customers ===== -->
-        <div id="settings-customers" class="settings-sub hidden">
-          <div class="bg-[#3a7bd5] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
-            <span class="flex items-center gap-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-              Manage your customers
-            </span>
-            <button id="btnAddCustomer" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-              Add
-            </button>
-          </div>
-          <div class="bg-white rounded-b-lg shadow-sm border border-t-0">
-            <!-- Search + Show Entries -->
-            <div class="flex items-center justify-between px-4 py-3 border-b">
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-500">Search:</label>
-                <input id="customerSearch" type="text" placeholder="Name, phone, email..."
-                  class="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none" />
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500">Show</span>
-                <select id="customerPageSize" class="px-2 py-1 border rounded text-xs">
-                  <option value="10" selected>10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                </select>
-                <span class="text-xs text-gray-500">Entries</span>
-              </div>
-            </div>
-            <!-- Table -->
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm" id="customersTable">
-                <thead class="bg-[#3a7bd5] text-white text-xs uppercase tracking-wide">
-                  <tr>
-                    <th class="px-4 py-2.5 text-left w-10"><input type="checkbox" id="customerCheckAll" class="rounded" /></th>
-                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
-                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="name">Name</th>
-                    <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="phone">Phone</th>
-                    <th class="px-4 py-2.5 text-left">Email</th>
-                    <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="orders"># Orders</th>
-                    <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="spent">Total Spent</th>
-                    <th class="px-4 py-2.5 text-center w-24">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="customersTableBody" class="divide-y divide-gray-100">
-                  <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400 text-xs">Loading customers...</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <!-- Pagination -->
-            <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-              <div id="customerInfo" class="text-xs text-gray-500">Showing 0 entries</div>
-              <div class="flex items-center gap-1" id="customerPagination"></div>
-            </div>
-          </div>
-        </div>
+        <!-- Suppliers and Customers moved to standalone pages -->
 
         <!-- ===== ADD/EDIT CUSTOMER MODAL ===== -->
         <div id="customerModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
@@ -1321,6 +1282,482 @@
         </div>
 
       </section>
+
+      <!-- ================================================================
+           PAGE: Suppliers (standalone page under Items menu group)
+           ================================================================ -->
+      <section id="page-suppliers" class="page hidden p-6" style="display:none">
+        <div class="bg-[#5bc0de] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            Manage your suppliers
+          </span>
+          <button id="btnAddSupplier" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            Add
+          </button>
+        </div>
+        <div class="bg-white rounded-b-lg shadow-sm border border-t-0">
+          <div class="flex items-center justify-between px-4 py-3 border-b">
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-500">Search:</label>
+              <input id="supplierSearch" type="text" placeholder="Name, contact..."
+                class="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-500">Show</span>
+              <select id="supplierPageSize" class="px-2 py-1 border rounded text-xs">
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+              <span class="text-xs text-gray-500">Entries</span>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="suppliersTable">
+              <thead class="bg-[#5bc0de] text-white text-xs uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-2.5 text-left w-10"><input type="checkbox" id="supplierCheckAll" class="rounded" /></th>
+                  <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
+                  <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="name">Name</th>
+                  <th class="px-4 py-2.5 text-left">Contact</th>
+                  <th class="px-4 py-2.5 text-left">Phone</th>
+                  <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="items"># Items</th>
+                  <th class="px-4 py-2.5 text-center w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="suppliersTableBody" class="divide-y divide-gray-100">
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 text-xs">Loading suppliers...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+            <div id="supplierInfo" class="text-xs text-gray-500">Showing 0 entries</div>
+            <div class="flex items-center gap-1" id="supplierPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           PAGE: Customers (standalone page under Items menu group)
+           ================================================================ -->
+      <section id="page-customers" class="page hidden p-6" style="display:none">
+        <div class="bg-[#3a7bd5] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Manage your customers
+          </span>
+          <button id="btnAddCustomer" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            Add
+          </button>
+        </div>
+        <div class="bg-white rounded-b-lg shadow-sm border border-t-0">
+          <div class="flex items-center justify-between px-4 py-3 border-b">
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-500">Search:</label>
+              <input id="customerSearch" type="text" placeholder="Name, phone, email..."
+                class="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none" />
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-500">Show</span>
+              <select id="customerPageSize" class="px-2 py-1 border rounded text-xs">
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+              <span class="text-xs text-gray-500">Entries</span>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="customersTable">
+              <thead class="bg-[#3a7bd5] text-white text-xs uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-2.5 text-left w-10"><input type="checkbox" id="customerCheckAll" class="rounded" /></th>
+                  <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
+                  <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="name">Name</th>
+                  <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="phone">Phone</th>
+                  <th class="px-4 py-2.5 text-left">Email</th>
+                  <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="orders"># Orders</th>
+                  <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="spent">Total Spent</th>
+                  <th class="px-4 py-2.5 text-center w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customersTableBody" class="divide-y divide-gray-100">
+                <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400 text-xs">Loading customers...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+            <div id="customerInfo" class="text-xs text-gray-500">Showing 0 entries</div>
+            <div class="flex items-center gap-1" id="customerPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           PAGE: Purchase Orders (standalone page under Items menu group)
+           ================================================================ -->
+      <section id="page-orders" class="page hidden p-6" style="display:none">
+        <div class="bg-[#e67e22] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            Purchase Orders
+          </span>
+          <button id="btnCreateOrder" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            New Order
+          </button>
+        </div>
+        <div class="bg-white rounded-b-lg shadow-sm border border-t-0">
+          <!-- Filters -->
+          <div class="flex items-center justify-between px-4 py-3 border-b flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-500">Search:</label>
+              <input id="orderSearch" type="text" placeholder="Order #, supplier..."
+                class="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-400 focus:outline-none" />
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Status:</label>
+                <select id="orderStatusFilter" class="px-2 py-1 border rounded text-xs">
+                  <option value="">All</option>
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="partial">Partial</option>
+                  <option value="received">Received</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500">Show</span>
+                <select id="orderPageSize" class="px-2 py-1 border rounded text-xs">
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                </select>
+                <span class="text-xs text-gray-500">Entries</span>
+              </div>
+            </div>
+          </div>
+          <!-- Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="ordersTable">
+              <thead class="bg-[#e67e22] text-white text-xs uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="order_number">Order #</th>
+                  <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="supplier">Supplier</th>
+                  <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="date">Date</th>
+                  <th class="px-4 py-2.5 text-center">Items</th>
+                  <th class="px-4 py-2.5 text-right cursor-pointer hover:bg-white/10" data-sort="total">Total</th>
+                  <th class="px-4 py-2.5 text-center cursor-pointer hover:bg-white/10" data-sort="status">Status</th>
+                  <th class="px-4 py-2.5 text-center w-32">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody" class="divide-y divide-gray-100">
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 text-xs">Loading orders...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination -->
+          <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+            <div id="orderInfo" class="text-xs text-gray-500">Showing 0 entries</div>
+            <div class="flex items-center gap-1" id="orderPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== CREATE/EDIT ORDER MODAL ===== -->
+      <div id="orderModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+          <div class="bg-[#e67e22] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+            <h3 id="orderModalTitle" class="font-semibold text-sm">New Purchase Order</h3>
+            <button id="orderModalClose" class="text-white/70 hover:text-white text-xl">&times;</button>
+          </div>
+          <form id="orderForm" class="p-5 space-y-4 overflow-y-auto flex-1">
+            <input type="hidden" name="order_id" />
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Supplier *</label>
+                <select name="supplier_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                  <option value="">Select supplier...</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Order Date *</label>
+                <input name="order_date" type="date" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Supplier Invoice #</label>
+                <input name="invoice_number" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. INV-2026-001" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Expected Delivery</label>
+                <input name="expected_date" type="date" class="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Status</label>
+                <select name="status" class="w-full border rounded-lg px-3 py-2 text-sm">
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="partial">Partial</option>
+                  <option value="received">Received</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Notes</label>
+                <textarea name="notes" rows="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Internal notes..."></textarea>
+              </div>
+            </div>
+
+            <!-- Order items -->
+            <div class="border rounded-lg">
+              <div class="bg-gray-50 px-4 py-2 flex items-center justify-between border-b rounded-t-lg">
+                <span class="text-xs font-semibold text-gray-600">Order Items</span>
+                <button type="button" id="btnAddOrderItem" class="text-orange-600 hover:text-orange-800 text-xs font-medium flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+                  Add Item
+                </button>
+              </div>
+              <!-- Product search row -->
+              <div id="orderItemSearchRow" class="hidden px-4 py-2 border-b bg-orange-50">
+                <div class="flex items-center gap-2">
+                  <input id="orderProductSearch" type="text" placeholder="Search product by name or SKU..."
+                    class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-400 focus:outline-none" />
+                  <button type="button" id="btnAddNewProductFromOrder" class="text-xs text-teal-600 hover:text-teal-800 font-medium whitespace-nowrap">+ New Product</button>
+                  <button type="button" id="btnCancelOrderItemSearch" class="text-xs text-gray-400 hover:text-gray-600">&times;</button>
+                </div>
+                <div id="orderProductResults" class="mt-1 max-h-40 overflow-y-auto hidden"></div>
+              </div>
+              <table class="w-full text-xs">
+                <thead class="bg-gray-50 text-gray-500 uppercase">
+                  <tr>
+                    <th class="px-3 py-2 text-left">Product</th>
+                    <th class="px-3 py-2 text-left w-20">SKU</th>
+                    <th class="px-3 py-2 text-right w-16">Qty</th>
+                    <th class="px-3 py-2 text-right w-24">Cost</th>
+                    <th class="px-3 py-2 text-right w-24">Total</th>
+                    <th class="px-3 py-2 text-center w-10"></th>
+                  </tr>
+                </thead>
+                <tbody id="orderItemsBody">
+                  <tr id="orderItemsEmpty"><td colspan="6" class="px-3 py-6 text-center text-gray-400">No items added yet</td></tr>
+                </tbody>
+              </table>
+              <div class="bg-gray-50 px-4 py-2 border-t flex justify-end gap-4">
+                <span class="text-xs text-gray-500">Items: <strong id="orderItemCount">0</strong></span>
+                <span class="text-xs text-gray-500">Total: <strong id="orderItemTotal" class="text-orange-600">₹0.00</strong></span>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button type="button" id="btnCancelOrder" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-xs hover:bg-gray-200">Cancel</button>
+              <button type="submit" class="bg-orange-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-orange-600 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                Save Order
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ===== RECEIVE ORDER MODAL ===== -->
+      <div id="receiveOrderModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+          <div class="bg-green-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+            <h3 id="receiveOrderTitle" class="font-semibold text-sm">Receive Order</h3>
+            <button id="receiveOrderClose" class="text-white/70 hover:text-white text-xl">&times;</button>
+          </div>
+          <div class="p-5 overflow-y-auto flex-1">
+            <input type="hidden" id="receiveOrderId" />
+            <div class="mb-3 text-xs text-gray-500">
+              Check items received and adjust quantities if needed. Received items will update inventory stock.
+            </div>
+            <table class="w-full text-xs">
+              <thead class="bg-green-50 text-gray-600 uppercase">
+                <tr>
+                  <th class="px-3 py-2 text-center w-10"><input type="checkbox" id="receiveCheckAll" checked class="rounded" /></th>
+                  <th class="px-3 py-2 text-left">Product</th>
+                  <th class="px-3 py-2 text-left w-20">SKU</th>
+                  <th class="px-3 py-2 text-right w-16">Ordered</th>
+                  <th class="px-3 py-2 text-right w-20">Received</th>
+                  <th class="px-3 py-2 text-right w-24">Cost</th>
+                </tr>
+              </thead>
+              <tbody id="receiveItemsBody"></tbody>
+            </table>
+            <div class="mt-3">
+              <label class="block text-xs text-gray-500 mb-1">Receiving Notes</label>
+              <textarea id="receiveNotes" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Any notes about this delivery..."></textarea>
+            </div>
+          </div>
+          <div class="border-t px-5 py-3 flex justify-end gap-2">
+            <button type="button" id="btnCancelReceive" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-xs hover:bg-gray-200">Cancel</button>
+            <button type="button" id="btnConfirmReceive" class="bg-green-600 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+              Confirm Receipt
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ORDER ITEM DETAIL MODAL ===== -->
+      <div id="orderItemDetailModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[70]">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-sm mx-4">
+          <!-- Header -->
+          <div class="bg-[#3b5998] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+            <h3 class="font-semibold text-sm">Items Details</h3>
+            <button id="orderItemDetailClose" class="text-white/70 hover:text-white text-xl leading-none">&times;</button>
+          </div>
+          <!-- Body -->
+          <div class="p-5 space-y-3">
+            <!-- Product name -->
+            <div id="oidProductName" class="font-semibold text-sm text-gray-800 truncate"></div>
+            <!-- Stock info row -->
+            <div class="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+              <div class="text-center">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wide">SKU</div>
+                <div id="oidSku" class="text-xs font-medium text-gray-700 mt-0.5"></div>
+              </div>
+              <div class="text-center">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wide">Qty on Hand</div>
+                <div id="oidQtyOnHand" class="text-xs font-bold text-blue-600 mt-0.5"></div>
+              </div>
+              <div class="text-center">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wide">Selling Price</div>
+                <div id="oidSellingPrice" class="text-xs font-bold text-green-600 mt-0.5"></div>
+              </div>
+            </div>
+            <!-- Editable fields -->
+            <div class="space-y-2.5 pt-1">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-medium text-gray-600 w-32">Order Qty:</label>
+                <input id="oidOrderQty" type="number" min="1" value="1"
+                  class="w-40 border border-orange-300 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-orange-400 focus:outline-none" />
+              </div>
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-medium text-gray-600 w-32">Cost Per Unit:</label>
+                <input id="oidCostPerUnit" type="number" min="0" step="0.01"
+                  class="w-40 border border-orange-300 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-orange-400 focus:outline-none" />
+              </div>
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-medium text-gray-600 w-32">Total Cost:</label>
+                <input id="oidTotalCost" type="number" min="0" step="0.01"
+                  class="w-40 border border-orange-300 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-orange-400 focus:outline-none" />
+              </div>
+              <hr class="border-dashed border-gray-200 my-1" />
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-medium text-gray-600 w-32">Markup %:</label>
+                <input id="oidMarkupPct" type="number" min="0" step="0.1"
+                  class="w-40 border border-green-300 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-green-400 focus:outline-none" />
+              </div>
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-medium text-gray-600 w-32">Selling Price:</label>
+                <input id="oidNewSellingPrice" type="number" min="0" step="0.01"
+                  class="w-40 border border-green-300 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-green-400 focus:outline-none" />
+              </div>
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-medium text-gray-600 w-32">Margin %:</label>
+                <div id="oidMarginPct" class="w-40 bg-gray-100 rounded-lg px-3 py-2 text-sm text-right text-gray-500 font-medium">0.00%</div>
+              </div>
+            </div>
+            <input type="hidden" id="oidSkuHidden" />
+          </div>
+          <!-- Footer -->
+          <div class="border-t px-5 py-3 flex justify-end gap-2 bg-gray-50 rounded-b-lg">
+            <button type="button" id="btnCancelItemDetail" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs hover:bg-gray-300 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+              Cancel
+            </button>
+            <button type="button" id="btnSaveItemDetail" class="bg-green-600 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ORDER DETAIL VIEW MODAL ===== -->
+      <div id="orderViewModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[65]">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+          <div class="bg-[#e67e22] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+            <h3 id="orderViewTitle" class="font-semibold text-sm">Order Details</h3>
+            <button id="orderViewClose" class="text-white/70 hover:text-white text-xl leading-none">&times;</button>
+          </div>
+          <div class="p-5 overflow-y-auto flex-1">
+            <!-- Order info summary -->
+            <div class="grid grid-cols-2 gap-x-6 gap-y-2 mb-4">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] uppercase text-gray-400 w-24">Order #</span>
+                <span id="ovOrderNumber" class="text-xs font-bold text-orange-700"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] uppercase text-gray-400 w-24">Invoice #</span>
+                <span id="ovInvoiceNumber" class="text-xs font-bold text-blue-700"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] uppercase text-gray-400 w-24">Supplier</span>
+                <span id="ovSupplier" class="text-xs font-medium"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] uppercase text-gray-400 w-24">Status</span>
+                <span id="ovStatus"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] uppercase text-gray-400 w-24">Order Date</span>
+                <span id="ovOrderDate" class="text-xs"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] uppercase text-gray-400 w-24">Expected</span>
+                <span id="ovExpectedDate" class="text-xs"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] uppercase text-gray-400 w-24">Total</span>
+                <span id="ovTotal" class="text-xs font-bold text-orange-600"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] uppercase text-gray-400 w-24">Received</span>
+                <span id="ovReceivedDate" class="text-xs"></span>
+              </div>
+            </div>
+            <div id="ovNotes" class="hidden mb-3 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-gray-600"></div>
+            <!-- Items table -->
+            <table class="w-full text-xs">
+              <thead class="bg-orange-50 text-gray-600 uppercase">
+                <tr>
+                  <th class="px-3 py-2 text-left">#</th>
+                  <th class="px-3 py-2 text-left">Product</th>
+                  <th class="px-3 py-2 text-left">SKU</th>
+                  <th class="px-3 py-2 text-right">Qty</th>
+                  <th class="px-3 py-2 text-right">Received</th>
+                  <th class="px-3 py-2 text-right">Cost</th>
+                  <th class="px-3 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody id="ovItemsBody"></tbody>
+            </table>
+          </div>
+          <div class="border-t px-5 py-3 flex justify-between items-center bg-gray-50 rounded-b-lg">
+            <div class="flex gap-2">
+              <button type="button" id="btnOvPrint" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-300 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                Print
+              </button>
+              <button type="button" id="btnOvEdit" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs hover:bg-blue-200 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Edit
+              </button>
+            </div>
+            <button type="button" id="btnOvClose" class="bg-gray-200 text-gray-700 px-4 py-1.5 rounded-lg text-xs hover:bg-gray-300">Close</button>
+          </div>
+        </div>
+      </div>
 
     </div><!-- end pageContainer -->
   </main>
@@ -1547,6 +1984,7 @@
   <script src="/static/js/settings.js"></script>
   <script src="/static/js/suppliers.js"></script>
   <script src="/static/js/customers.js"></script>
+  <script src="/static/js/orders.js"></script>
 
   <!-- Inventory column resizer -->
   <script>

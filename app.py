@@ -1345,6 +1345,255 @@ def delete_customer(customer_id):
 
 
 # ---------------------------------------------------------------------------
+# Purchase Orders API
+# ---------------------------------------------------------------------------
+
+def _generate_order_number():
+    """Generate a unique purchase order number like PO-20260208-A1B2C3."""
+    conn = db()
+    while True:
+        num = f"PO-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        existing = conn.execute("SELECT id FROM purchase_orders WHERE order_number = ?", (num,)).fetchone()
+        if not existing:
+            return num
+
+
+@app.route("/api/orders", methods=["GET"])
+@login_required
+@admin_required
+def list_orders():
+    conn = db()
+    rows = conn.execute(
+        "SELECT * FROM purchase_orders ORDER BY created DESC"
+    ).fetchall()
+    orders = []
+    for r in rows:
+        o = dict(r)
+        items = conn.execute(
+            "SELECT * FROM purchase_order_items WHERE order_id = ?", (o["id"],)
+        ).fetchall()
+        o["items"] = [dict(i) for i in items]
+        o["item_count"] = len(o["items"])
+        orders.append(o)
+    return jsonify(orders)
+
+
+@app.route("/api/orders", methods=["POST"])
+@login_required
+@admin_required
+def create_order():
+    data = request.get_json()
+    conn = db()
+    now = datetime.now().isoformat()
+
+    supplier_id = data.get("supplier_id")
+    if not supplier_id:
+        return jsonify({"error": "Supplier is required"}), 400
+
+    supplier = conn.execute("SELECT * FROM suppliers WHERE id = ?", (supplier_id,)).fetchone()
+    supplier_name = supplier["name"] if supplier else ""
+
+    order_number = _generate_order_number()
+    items = data.get("items", [])
+
+    total = sum(float(it.get("cost_price", 0)) * int(it.get("quantity", 0)) for it in items)
+
+    cursor = conn.execute(
+        "INSERT INTO purchase_orders (order_number, invoice_number, supplier_id, supplier_name, order_date, "
+        "expected_date, status, notes, total_amount, created, last_updated) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (order_number, data.get("invoice_number", ""),
+         supplier_id, supplier_name,
+         data.get("order_date", date.today().isoformat()),
+         data.get("expected_date", ""),
+         data.get("status", "draft"),
+         data.get("notes", ""),
+         total, now, now)
+    )
+    order_id = cursor.lastrowid
+
+    for it in items:
+        qty = int(it.get("quantity", 0))
+        cost = float(it.get("cost_price", 0))
+        conn.execute(
+            "INSERT INTO purchase_order_items (order_id, sku, product_name, quantity, received_qty, cost_price, line_total) "
+            "VALUES (?,?,?,?,0,?,?)",
+            (order_id, it["sku"], it.get("product_name", ""), qty, cost, qty * cost)
+        )
+
+    conn.commit()
+    return jsonify({"success": True, "order_number": order_number, "id": order_id})
+
+
+@app.route("/api/orders/<int:order_id>", methods=["GET"])
+@login_required
+@admin_required
+def get_order(order_id):
+    conn = db()
+    row = conn.execute("SELECT * FROM purchase_orders WHERE id = ?", (order_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Order not found"}), 404
+    o = dict(row)
+    items = conn.execute("SELECT * FROM purchase_order_items WHERE order_id = ?", (order_id,)).fetchall()
+    o["items"] = [dict(i) for i in items]
+    return jsonify(o)
+
+
+@app.route("/api/orders/<int:order_id>", methods=["PUT"])
+@login_required
+@admin_required
+def update_order(order_id):
+    data = request.get_json()
+    conn = db()
+    now = datetime.now().isoformat()
+
+    row = conn.execute("SELECT * FROM purchase_orders WHERE id = ?", (order_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Order not found"}), 404
+
+    supplier_id = data.get("supplier_id", row["supplier_id"])
+    supplier = conn.execute("SELECT * FROM suppliers WHERE id = ?", (supplier_id,)).fetchone()
+    supplier_name = supplier["name"] if supplier else row["supplier_name"]
+
+    items = data.get("items", [])
+    total = sum(float(it.get("cost_price", 0)) * int(it.get("quantity", 0)) for it in items)
+
+    conn.execute(
+        "UPDATE purchase_orders SET invoice_number=?, supplier_id=?, supplier_name=?, order_date=?, expected_date=?, "
+        "status=?, notes=?, total_amount=?, last_updated=? WHERE id=?",
+        (data.get("invoice_number", row["invoice_number"] if "invoice_number" in row.keys() else ""),
+         supplier_id, supplier_name,
+         data.get("order_date", row["order_date"]),
+         data.get("expected_date", row["expected_date"]),
+         data.get("status", row["status"]),
+         data.get("notes", row["notes"]),
+         total, now, order_id)
+    )
+
+    # Replace items
+    conn.execute("DELETE FROM purchase_order_items WHERE order_id = ?", (order_id,))
+    for it in items:
+        qty = int(it.get("quantity", 0))
+        cost = float(it.get("cost_price", 0))
+        conn.execute(
+            "INSERT INTO purchase_order_items (order_id, sku, product_name, quantity, received_qty, cost_price, line_total) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (order_id, it["sku"], it.get("product_name", ""), qty,
+             int(it.get("received_qty", 0)), cost, qty * cost)
+        )
+
+    conn.commit()
+    return jsonify({"success": True, "message": "Order updated"})
+
+
+@app.route("/api/orders/<int:order_id>", methods=["DELETE"])
+@login_required
+@admin_required
+def delete_order(order_id):
+    conn = db()
+    row = conn.execute("SELECT * FROM purchase_orders WHERE id = ?", (order_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Order not found"}), 404
+
+    if row["status"] == "received":
+        return jsonify({"error": "Cannot delete a received order"}), 400
+
+    conn.execute("DELETE FROM purchase_order_items WHERE order_id = ?", (order_id,))
+    conn.execute("DELETE FROM purchase_orders WHERE id = ?", (order_id,))
+    conn.commit()
+    return jsonify({"success": True, "message": f"Order {row['order_number']} deleted"})
+
+
+@app.route("/api/orders/<int:order_id>/receive", methods=["POST"])
+@login_required
+@admin_required
+def receive_order(order_id):
+    """Receive items from a purchase order — updates inventory quantity and logs."""
+    data = request.get_json()
+    conn = db()
+    now = datetime.now().isoformat()
+
+    row = conn.execute("SELECT * FROM purchase_orders WHERE id = ?", (order_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Order not found"}), 404
+
+    if row["status"] == "received":
+        return jsonify({"error": "Order already fully received"}), 400
+
+    received_items = data.get("items", [])
+    cashier = session.get("user", "system")
+
+    all_received = True
+    for ri in received_items:
+        sku = ri.get("sku", "")
+        recv_qty = int(ri.get("received_qty", 0))
+        if recv_qty <= 0:
+            continue
+
+        # Update purchase_order_items received_qty
+        poi = conn.execute(
+            "SELECT * FROM purchase_order_items WHERE order_id = ? AND sku = ?",
+            (order_id, sku)
+        ).fetchone()
+        if not poi:
+            continue
+
+        new_received = int(poi.get("received_qty", 0)) + recv_qty
+        conn.execute(
+            "UPDATE purchase_order_items SET received_qty = ? WHERE id = ?",
+            (new_received, poi["id"])
+        )
+
+        if new_received < int(poi["quantity"]):
+            all_received = False
+
+        # Update inventory stock
+        product = conn.execute("SELECT * FROM inventory WHERE sku = ?", (sku,)).fetchone()
+        if product:
+            old_qty = int(product["quantity"])
+            new_qty = old_qty + recv_qty
+            conn.execute("UPDATE inventory SET quantity = ?, last_updated = ? WHERE sku = ?",
+                         (new_qty, now, sku))
+
+            # Log to inventory_log
+            conn.execute(
+                "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (sku, "PO Received",
+                 f"Received {recv_qty} units from PO {row['order_number']}",
+                 str(old_qty), str(new_qty), recv_qty, now)
+            )
+
+            # Log to purchases table
+            conn.execute(
+                "INSERT INTO purchases (sku, date, supplier, quantity, cost_price, selling_price, "
+                "total_cost, invoice_number, notes, created) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (sku, now[:10], row["supplier_name"], recv_qty,
+                 float(poi.get("cost_price", 0)), float(product.get("selling_price", 0)),
+                 recv_qty * float(poi.get("cost_price", 0)),
+                 row["order_number"],
+                 data.get("notes", ""), now)
+            )
+
+    # Update order status
+    new_status = "received" if all_received else "partial"
+    conn.execute(
+        "UPDATE purchase_orders SET status=?, received_date=?, received_by=?, receive_notes=?, last_updated=? WHERE id=?",
+        (new_status, now, cashier, data.get("notes", ""), now, order_id)
+    )
+
+    conn.commit()
+    return jsonify({"success": True, "message": f"Order {row['order_number']} — {new_status}", "status": new_status})
+
+
+@app.route("/api/orders/generate-number", methods=["GET"])
+@login_required
+@admin_required
+def generate_order_number():
+    return jsonify({"order_number": _generate_order_number()})
+
+
+# ---------------------------------------------------------------------------
 # Backup API
 # ---------------------------------------------------------------------------
 

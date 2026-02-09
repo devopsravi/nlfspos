@@ -78,7 +78,7 @@ const App = {
     const parts = hash.split('/');
     const page = parts[0];
     const sub = parts[1] || null;
-    const validPages = ['pos', 'sales', 'inventory', 'labels', 'reports', 'transactions', 'settings'];
+    const validPages = ['pos', 'sales', 'inventory', 'labels', 'reports', 'transactions', 'settings', 'orders', 'suppliers', 'customers'];
     if (validPages.includes(page)) return { page, sub };
     return null;
   },
@@ -158,6 +158,9 @@ const App = {
     return this.settings.tax_name || 'Tax';
   },
 
+  // Pages that belong to the Items menu group
+  _itemsPages: ['inventory', 'orders', 'suppliers', 'customers'],
+
   // --- Navigation ---
   setupNavigation() {
     // Normal nav links
@@ -174,10 +177,32 @@ const App = {
             if (subMenu) subMenu.classList.remove('hidden');
             if (chevron) chevron.classList.add('rotate-180');
           }
+          // If it's an Items sub-link, keep items menu open
+          if (this._itemsPages.includes(page)) {
+            const itemsSub = document.getElementById('itemsSubMenu');
+            const itemsChev = document.getElementById('itemsChevron');
+            if (itemsSub) itemsSub.classList.remove('hidden');
+            if (itemsChev) itemsChev.classList.add('rotate-180');
+          }
           this.navigate(page, sub);
         }
       });
     });
+
+    // Items toggle button (expand/collapse sub-menu + navigate)
+    const itemsToggle = document.getElementById('itemsToggle');
+    const itemsSubMenu = document.getElementById('itemsSubMenu');
+    const itemsChevron = document.getElementById('itemsChevron');
+    if (itemsToggle) {
+      itemsToggle.addEventListener('click', () => {
+        const isHidden = itemsSubMenu.classList.contains('hidden');
+        itemsSubMenu.classList.toggle('hidden');
+        itemsChevron.classList.toggle('rotate-180');
+        if (isHidden) {
+          this.navigate('inventory');
+        }
+      });
+    }
 
     // Settings toggle button (expand/collapse sub-menu + navigate)
     const settingsToggle = document.getElementById('settingsToggle');
@@ -204,7 +229,7 @@ const App = {
     }
 
     // Permission guard: non-admin can't access restricted pages
-    const adminOnly = ['sales','inventory','labels','settings','reports','transactions'];
+    const adminOnly = ['sales','inventory','labels','settings','reports','transactions','orders','suppliers','customers'];
     if (adminOnly.includes(page) && this.userRole === 'staff') {
       page = 'pos'; // redirect staff to POS
     }
@@ -225,8 +250,19 @@ const App = {
 
     // Update nav active state
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active','text-white'));
-    const activeLink = document.querySelector(`.nav-link[data-page="${page}"]:not(.sub-link)`);
-    if (activeLink) activeLink.classList.add('active');
+    // For items-group pages, highlight the sub-link inside items menu
+    if (this._itemsPages.includes(page)) {
+      const itemsLink = document.querySelector(`#itemsSubMenu .nav-link[data-page="${page}"]`);
+      if (itemsLink) itemsLink.classList.add('active','text-white');
+      // Keep items menu open
+      const itemsSub = document.getElementById('itemsSubMenu');
+      const itemsChev = document.getElementById('itemsChevron');
+      if (itemsSub) itemsSub.classList.remove('hidden');
+      if (itemsChev) itemsChev.classList.add('rotate-180');
+    } else {
+      const activeLink = document.querySelector(`.nav-link[data-page="${page}"]:not(.sub-link)`);
+      if (activeLink) activeLink.classList.add('active');
+    }
 
     // Show/hide pages
     document.querySelectorAll('.page').forEach(p => {
@@ -246,8 +282,8 @@ const App = {
     }
 
     // Update title + breadcrumb subtitle
-    const titles = { pos: 'POS Register', inventory: 'Items', labels: 'Labels', sales: 'Dashboard', reports: 'Reports', transactions: 'Sales', settings: 'Settings' };
-    const subtitles = { pos: 'checkout & billing', inventory: 'manage products', labels: 'barcode labels', sales: 'overview & stats', reports: 'sales & analytics', transactions: 'view & search transactions', settings: 'staff & config' };
+    const titles = { pos: 'POS Register', inventory: 'Inventory', labels: 'Labels', sales: 'Dashboard', reports: 'Reports', transactions: 'Sales', settings: 'Settings', orders: 'Purchase Orders', suppliers: 'Suppliers', customers: 'Customers' };
+    const subtitles = { pos: 'checkout & billing', inventory: 'manage products', labels: 'barcode labels', sales: 'overview & stats', reports: 'sales & analytics', transactions: 'view & search transactions', settings: 'staff & config', orders: 'manage purchase orders', suppliers: 'manage suppliers', customers: 'manage customers' };
     document.getElementById('pageTitle').textContent = titles[page] || page;
     const subEl = document.querySelector('#pageTitle + span');
     if (subEl) subEl.textContent = `\u203A ${subtitles[page] || ''}`;
@@ -261,6 +297,9 @@ const App = {
       case 'reports': if (typeof Reports !== 'undefined') Reports.init(); break;
       case 'transactions': if (typeof Transactions !== 'undefined') Transactions.init(); break;
       case 'settings': if (typeof Settings !== 'undefined') Settings.init(sub || 'staff'); break;
+      case 'orders': if (typeof Orders !== 'undefined') Orders.init(); break;
+      case 'suppliers': if (typeof Suppliers !== 'undefined') Suppliers.init(); break;
+      case 'customers': if (typeof Customers !== 'undefined') Customers.init(); break;
     }
   },
 

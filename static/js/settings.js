@@ -13,8 +13,6 @@ const Settings = {
     if (this.currentSub === 'staff') await this.loadUsers();
     if (this.currentSub === 'store') this.populateStore();
     if (this.currentSub === 'pos') this.populatePOS();
-    if (this.currentSub === 'suppliers' && typeof Suppliers !== 'undefined') await Suppliers.init();
-    if (this.currentSub === 'customers' && typeof Customers !== 'undefined') await Customers.init();
     this.bindEvents();
   },
 

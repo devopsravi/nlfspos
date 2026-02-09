@@ -63,6 +63,23 @@ body.col-resizing {
 }
 .sh-panel.hidden { display: none; }
 
+/* --- Transaction Details Modal Tabs --- */
+.txn-tab {
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.txn-tab:hover { color: #3a7bd5; background: #eff6ff; }
+.txn-tab.active { color: #fff; background: #3a7bd5; border-color: #3a7bd5; }
+.txn-panel.hidden { display: none; }
+
 /* --- Sidebar (matches reference dark blue-gray) --- */
 .sidebar {
   background: #2c3e50;

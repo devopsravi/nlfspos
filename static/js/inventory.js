@@ -569,7 +569,7 @@ const Inventory = {
       } else {
         tbody.innerHTML = this._shSalesData.map(r => {
           return `<tr class="hover:bg-gray-50 text-xs">
-            <td class="px-3 py-2">${esc(r.receipt_number)}</td>
+            <td class="px-3 py-2"><a href="#" onclick="Inventory.showTransactionDetail('${esc(r.receipt_number)}');return false;" class="text-blue-600 hover:underline font-medium">${esc(r.receipt_number)}</a></td>
             <td class="px-3 py-2">${r.sale_date}</td>
             <td class="px-3 py-2">${esc(r.category || '')}</td>
             <td class="px-3 py-2 text-right">${r.quantity}</td>
@@ -605,5 +605,327 @@ const Inventory = {
     a.href = URL.createObjectURL(blob);
     a.download = `item_sales_${sku}.csv`;
     a.click();
+  },
+
+  // =========================================================================
+  // Transaction Detail Modal (from Item Sales receipt click)
+  // =========================================================================
+  _txnSale: null,
+
+  async showTransactionDetail(receiptNumber) {
+    const modal = document.getElementById('txnDetailModal');
+    try {
+      const res = await fetch(`/api/sales/${encodeURIComponent(receiptNumber)}`);
+      if (!res.ok) { App.toast('Sale not found'); return; }
+      const sale = await res.json();
+      this._txnSale = sale;
+
+      // Close button
+      document.getElementById('txnDetailClose').onclick = () => modal.classList.add('hidden');
+
+      // Populate header info
+      const isVoided = (sale.status || 'Complete') === 'Voided';
+      const statusBadge = isVoided
+        ? '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">Voided</span>'
+        : '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">Complete</span>';
+      const dateStr = sale.timestamp ? new Date(sale.timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : sale.date;
+
+      document.getElementById('txnDetailInfo').innerHTML = `
+        <div><span class="text-gray-500">Status:</span> ${statusBadge}</div>
+        <div><span class="text-gray-500">Receipt:</span> <span class="font-medium">${esc(sale.receipt_number)}</span></div>
+        <div><span class="text-gray-500">Date:</span> <span class="font-medium">${dateStr}</span></div>
+        <div><span class="text-gray-500">Cashier:</span> <span class="font-medium">${esc(sale.cashier || 'Staff')}</span></div>
+        <div><span class="text-gray-500">Customer:</span> <span class="font-medium">${esc(sale.customer_name || '—')} ${esc(sale.customer_phone || '')}</span></div>
+        <div><span class="text-gray-500">Payment:</span> <span class="font-medium">${esc(sale.payment_method || 'Cash')}</span></div>
+      `;
+
+      // Tab switching
+      document.querySelectorAll('.txn-tab').forEach(tab => {
+        tab.onclick = () => {
+          document.querySelectorAll('.txn-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          const target = tab.dataset.txntab;
+          document.querySelectorAll('.txn-panel').forEach(p => p.classList.add('hidden'));
+          const panelId = 'txnTab' + target.charAt(0).toUpperCase() + target.slice(1);
+          document.getElementById(panelId)?.classList.remove('hidden');
+        };
+      });
+
+      // Render all tabs
+      this._renderTxnDetails(sale);
+      this._renderTxnItems(sale);
+      this._renderTxnPayments(sale);
+      this._bindTxnOptions(sale);
+
+      // Footer: Void + Close
+      const footer = document.getElementById('txnDetailFooter');
+      const userRole = (App.userRole || '').toLowerCase();
+      const canVoid = !isVoided && (userRole === 'admin' || userRole === 'manager');
+      footer.innerHTML = `
+        ${canVoid ? `<button id="txnVoidBtn" class="bg-red-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18.364 5.636l-12.728 12.728M5.636 5.636l12.728 12.728"/></svg>
+          Void
+        </button>` : ''}
+        <button id="txnCloseBtn" class="bg-gray-400 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-500 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+          Close
+        </button>`;
+
+      document.getElementById('txnCloseBtn').onclick = () => modal.classList.add('hidden');
+      if (canVoid) {
+        document.getElementById('txnVoidBtn').onclick = () => {
+          const reason = prompt('Reason for voiding this sale (optional):');
+          if (reason === null) return;
+          if (!confirm(`Void sale ${sale.receipt_number}?\nInventory will be restored.`)) return;
+          fetch(`/api/sales/${encodeURIComponent(sale.receipt_number)}/void`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason || '' }),
+          }).then(r => r.json()).then(data => {
+            if (data.success) {
+              App.toast(data.message || 'Sale voided');
+              modal.classList.add('hidden');
+              // Reload item sales tab
+              if (this._shSku) this.loadHistorySales(this._shSku);
+            } else {
+              App.toast(data.error || 'Failed to void sale');
+            }
+          }).catch(() => App.toast('Failed to void sale'));
+        };
+      }
+
+      // Default tab: Details
+      document.querySelectorAll('.txn-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.txn-tab[data-txntab="details"]').classList.add('active');
+      document.querySelectorAll('.txn-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById('txnTabDetails').classList.remove('hidden');
+
+      modal.classList.remove('hidden');
+    } catch (e) {
+      App.toast('Failed to load transaction');
+    }
+  },
+
+  _renderTxnDetails(sale) {
+    const isVoided = (sale.status || 'Complete') === 'Voided';
+    let html = `
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-xs text-gray-500 mb-1">Subtotal</div>
+            <div class="text-lg font-bold">${App.currency(sale.subtotal)}</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-xs text-gray-500 mb-1">Discount</div>
+            <div class="text-lg font-bold text-red-600">-${App.currency(sale.discount_amount || 0)}</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-xs text-gray-500 mb-1">Tax</div>
+            <div class="text-lg font-bold">${App.currency(sale.tax_amount || 0)}</div>
+          </div>
+          <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+            <div class="text-xs text-blue-600 mb-1">Grand Total</div>
+            <div class="text-xl font-bold text-blue-700">${App.currency(sale.grand_total)}</div>
+          </div>
+        </div>
+        <div class="text-sm text-gray-500">Items in this sale: <strong>${(sale.items || []).length}</strong></div>
+    `;
+    if (isVoided) {
+      html += `
+        <div class="bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+          <div class="font-semibold text-red-700">Sale Voided</div>
+          ${sale.voided_at ? `<div class="text-xs text-red-600">Voided on: ${new Date(sale.voided_at).toLocaleString()}</div>` : ''}
+          ${sale.voided_by ? `<div class="text-xs text-red-600">By: ${esc(sale.voided_by)}</div>` : ''}
+          ${sale.void_reason ? `<div class="text-xs text-red-600">Reason: ${esc(sale.void_reason)}</div>` : ''}
+        </div>`;
+    }
+    html += '</div>';
+    document.getElementById('txnTabDetails').innerHTML = html;
+  },
+
+  _renderTxnItems(sale) {
+    const items = sale.items || [];
+    if (items.length === 0) {
+      document.getElementById('txnTabItems').innerHTML = '<p class="text-gray-400 text-center py-6">No items</p>';
+      return;
+    }
+    let html = `<table class="w-full text-sm border">
+      <thead class="bg-gray-100 text-xs uppercase text-gray-600">
+        <tr>
+          <th class="px-3 py-2 text-left">Item</th>
+          <th class="px-3 py-2 text-left">SKU</th>
+          <th class="px-3 py-2 text-right">Qty</th>
+          <th class="px-3 py-2 text-right">Unit Price</th>
+          <th class="px-3 py-2 text-right">Discount</th>
+          <th class="px-3 py-2 text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y">`;
+    items.forEach(i => {
+      html += `<tr class="hover:bg-gray-50">
+        <td class="px-3 py-2 font-medium">${esc(i.name)}</td>
+        <td class="px-3 py-2 text-gray-500 font-mono text-xs">${esc(i.sku)}</td>
+        <td class="px-3 py-2 text-right">${i.quantity}</td>
+        <td class="px-3 py-2 text-right">${App.currency(i.unit_price)}</td>
+        <td class="px-3 py-2 text-right text-red-600">${i.discount_amount > 0 ? '-' + App.currency(i.discount_amount) : '—'}</td>
+        <td class="px-3 py-2 text-right font-semibold">${App.currency(i.final_total || i.line_total)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('txnTabItems').innerHTML = html;
+  },
+
+  _renderTxnPayments(sale) {
+    document.getElementById('txnTabPayments').innerHTML = `
+      <div class="space-y-4">
+        <div class="bg-gray-50 rounded-lg p-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <div class="text-xs text-gray-500 mb-1">Payment Method</div>
+              <div class="text-lg font-bold">${esc(sale.payment_method || 'Cash')}</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500 mb-1">Amount Paid</div>
+              <div class="text-lg font-bold text-green-700">${App.currency(sale.grand_total)}</div>
+            </div>
+          </div>
+        </div>
+        <table class="w-full text-sm border">
+          <thead class="bg-gray-100 text-xs uppercase text-gray-600">
+            <tr>
+              <th class="px-3 py-2 text-left">Method</th>
+              <th class="px-3 py-2 text-right">Amount</th>
+              <th class="px-3 py-2 text-left">Status</th>
+              <th class="px-3 py-2 text-left">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-2 font-medium">${esc(sale.payment_method || 'Cash')}</td>
+              <td class="px-3 py-2 text-right font-semibold">${App.currency(sale.grand_total)}</td>
+              <td class="px-3 py-2"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Paid</span></td>
+              <td class="px-3 py-2 text-gray-500">${sale.timestamp ? new Date(sale.timestamp).toLocaleString('en-IN', { timeStyle: 'short' }) : ''}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+  },
+
+  _bindTxnOptions(sale) {
+    // Print Receipt
+    document.getElementById('txnOptPrint').onclick = () => {
+      document.getElementById('txnDetailModal').classList.add('hidden');
+      POS.showReceipt(sale);
+      setTimeout(() => {
+        document.getElementById('btnPrintReceipt')?.click();
+      }, 300);
+    };
+
+    // Generate Invoice (A4 — reuse quote pattern)
+    document.getElementById('txnOptInvoice').onclick = () => {
+      const s = App.settings;
+      const items = sale.items || [];
+      const itemRows = items.map((it, idx) => `
+        <tr>
+          <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${idx + 1}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd">${esc(it.name)}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd">${esc(it.sku)}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${it.quantity}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">${App.currency(it.unit_price)}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">${it.discount_amount > 0 ? App.currency(it.discount_amount) : '—'}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd;text-align:right;font-weight:600">${App.currency(it.final_total || it.line_total)}</td>
+        </tr>`).join('');
+
+      const invoiceHTML = `
+        <div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;">
+          <div style="text-align:center;margin-bottom:20px;">
+            <img src="/static/img/logo.svg" style="width:60px;height:60px;margin:0 auto 8px;display:block;border-radius:10px;" />
+            <h2 style="margin:0;font-size:22px;">${esc(s.store_name || 'Next Level Furniture')}</h2>
+            <p style="margin:4px 0;color:#666;font-size:13px;">${esc(s.address || '')}</p>
+            <p style="margin:2px 0;color:#666;font-size:13px;">${esc(s.phone || '')} ${s.email ? ' | ' + esc(s.email) : ''}</p>
+          </div>
+          <hr style="border:1px solid #3a7bd5;margin:16px 0;" />
+          <h3 style="text-align:center;color:#3a7bd5;margin-bottom:16px;">TAX INVOICE</h3>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:16px;">
+            <div>
+              <strong>Invoice #:</strong> ${esc(sale.receipt_number)}<br/>
+              <strong>Date:</strong> ${sale.date}<br/>
+              <strong>Cashier:</strong> ${esc(sale.cashier || 'Staff')}
+            </div>
+            <div style="text-align:right;">
+              ${sale.customer_name ? `<strong>Customer:</strong> ${esc(sale.customer_name)}<br/>` : ''}
+              ${sale.customer_phone ? `<strong>Phone:</strong> ${esc(sale.customer_phone)}<br/>` : ''}
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
+            <thead>
+              <tr style="background:#3a7bd5;color:#fff;">
+                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:center">#</th>
+                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:left">Item</th>
+                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:left">SKU</th>
+                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:center">Qty</th>
+                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:right">Price</th>
+                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:right">Discount</th>
+                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:right">Total</th>
+              </tr>
+            </thead>
+            <tbody>${itemRows}</tbody>
+          </table>
+          <div style="text-align:right;font-size:14px;">
+            <div style="margin:4px 0;">Subtotal: <strong>${App.currency(sale.subtotal)}</strong></div>
+            ${sale.discount_amount > 0 ? `<div style="margin:4px 0;color:#e74c3c;">Discount: <strong>-${App.currency(sale.discount_amount)}</strong></div>` : ''}
+            <div style="margin:4px 0;">Tax: <strong>${App.currency(sale.tax_amount || 0)}</strong></div>
+            <div style="margin:8px 0;font-size:18px;color:#3a7bd5;"><strong>Grand Total: ${App.currency(sale.grand_total)}</strong></div>
+          </div>
+          <hr style="border:1px solid #eee;margin:20px 0;" />
+          <div style="text-align:center;color:#999;font-size:11px;">
+            ${esc(s.receipt_footer || 'Thank you for your business!')}
+          </div>
+        </div>`;
+
+      // Use the quote print area to print the invoice
+      const printArea = document.getElementById('quotePrintArea');
+      printArea.innerHTML = invoiceHTML;
+      printArea.classList.remove('hidden');
+      setTimeout(() => {
+        window.print();
+        printArea.classList.add('hidden');
+      }, 200);
+    };
+
+    // Download CSV
+    document.getElementById('txnOptCSV').onclick = () => {
+      const items = sale.items || [];
+      if (items.length === 0) { App.toast('No items to export'); return; }
+      const headers = ['Item', 'SKU', 'Qty', 'Unit Price', 'Discount', 'Total'];
+      const rows = items.map(i => [
+        `"${i.name}"`, i.sku, i.quantity, i.unit_price,
+        i.discount_amount || 0, i.final_total || i.line_total
+      ]);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `invoice_${sale.receipt_number}.csv`;
+      a.click();
+    };
+
+    // Email Invoice (placeholder)
+    document.getElementById('txnOptEmail').onclick = () => {
+      App.toast('Email feature coming soon — no email server configured');
+    };
+
+    // History — go back to Detail tab in Stock History
+    document.getElementById('txnOptHistory').onclick = () => {
+      document.getElementById('txnDetailModal').classList.add('hidden');
+      // Switch to Detail tab in stock history
+      if (this._shSku) {
+        document.querySelectorAll('.sh-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.sh-tab[data-tab="detail"]')?.classList.add('active');
+        document.querySelectorAll('.sh-panel').forEach(p => p.classList.add('hidden'));
+        document.getElementById('shTabDetail')?.classList.remove('hidden');
+        this.loadHistoryDetail(this._shSku);
+      }
+    };
   },
 };
