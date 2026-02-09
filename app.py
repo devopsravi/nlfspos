@@ -11,7 +11,7 @@ import uuid
 import hashlib
 import functools
 import atexit
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 
 from flask import Flask, jsonify, request, render_template, send_from_directory, Response, session, redirect, url_for, g
@@ -383,7 +383,13 @@ def update_product(sku):
     today = date.today().isoformat()
     original = row_to_dict(row)
 
-    db().execute(
+    conn = db()
+    new_cost = float(data.get("cost_price", original["cost_price"]))
+    new_sell = float(data.get("selling_price", original["selling_price"]))
+    new_qty = int(data.get("quantity", original["quantity"]))
+    now_str = datetime.now().isoformat()
+
+    conn.execute(
         """UPDATE inventory SET
         name=?, category=?, brand=?, description=?, cost_price=?, selling_price=?,
         quantity=?, reorder_level=?, dimensions=?, weight=?, color=?, image_path=?,
@@ -393,9 +399,7 @@ def update_product(sku):
          data.get("category", original["category"]),
          data.get("brand", original["brand"]),
          data.get("description", original["description"]),
-         float(data.get("cost_price", original["cost_price"])),
-         float(data.get("selling_price", original["selling_price"])),
-         int(data.get("quantity", original["quantity"])),
+         new_cost, new_sell, new_qty,
          int(data.get("reorder_level", original["reorder_level"])),
          data.get("dimensions", original["dimensions"]),
          float(data.get("weight", original["weight"])),
@@ -404,9 +408,45 @@ def update_product(sku):
          data.get("supplier", original["supplier"]),
          today, sku)
     )
-    db().commit()
 
-    updated = db().execute("SELECT * FROM inventory WHERE sku = ?", (sku,)).fetchone()
+    # Audit log: price changes
+    old_cost = float(original.get("cost_price", 0))
+    old_sell = float(original.get("selling_price", 0))
+    if new_cost != old_cost or new_sell != old_sell:
+        conn.execute(
+            "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) VALUES (?,?,?,?,?,?,?)",
+            (sku, "Price Changed",
+             f"Cost: ₹{old_cost:.2f}→₹{new_cost:.2f}, Sell: ₹{old_sell:.2f}→₹{new_sell:.2f}",
+             f"{old_cost}/{old_sell}", f"{new_cost}/{new_sell}", 0, now_str)
+        )
+
+    # Audit log: quantity changes
+    old_qty = int(original.get("quantity", 0))
+    if new_qty != old_qty:
+        diff = new_qty - old_qty
+        conn.execute(
+            "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) VALUES (?,?,?,?,?,?,?)",
+            (sku, "Qty Adjusted",
+             f"Quantity changed from {old_qty} to {new_qty}",
+             str(old_qty), str(new_qty), diff, now_str)
+        )
+
+    # Audit log: general edit (name, category, supplier, etc.)
+    edit_changes = []
+    for field in ["name", "category", "brand", "supplier", "description", "reorder_level"]:
+        old_val = str(original.get(field, ""))
+        new_val = str(data.get(field, original.get(field, "")))
+        if old_val != new_val:
+            edit_changes.append(f"{field}: {old_val}→{new_val}")
+    if edit_changes and not (new_cost != old_cost or new_sell != old_sell) and new_qty == old_qty:
+        conn.execute(
+            "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) VALUES (?,?,?,?,?,?,?)",
+            (sku, "Edited", "; ".join(edit_changes), "", "", 0, now_str)
+        )
+
+    conn.commit()
+
+    updated = conn.execute("SELECT * FROM inventory WHERE sku = ?", (sku,)).fetchone()
     return jsonify({"success": True, "product": row_to_dict(updated)})
 
 
@@ -513,6 +553,172 @@ def get_categories():
         "SELECT DISTINCT category FROM inventory WHERE category != '' ORDER BY category"
     ).fetchall()
     return jsonify([r["category"] for r in rows])
+
+
+# ---------------------------------------------------------------------------
+# Inventory History / Purchases API
+# ---------------------------------------------------------------------------
+
+@app.route("/api/inventory/<sku>/history", methods=["GET"])
+@login_required
+def get_inventory_history(sku):
+    """Get audit log for a specific product."""
+    conn = db()
+    q = request.args.get("q", "").lower()
+    rows = conn.execute(
+        "SELECT * FROM inventory_log WHERE sku = ? ORDER BY created DESC", (sku,)
+    ).fetchall()
+    results = [dict(r) for r in rows]
+    if q:
+        results = [r for r in results if q in r.get("action", "").lower() or q in r.get("description", "").lower()]
+    return jsonify(results)
+
+
+@app.route("/api/inventory/<sku>/stats", methods=["GET"])
+@login_required
+def get_inventory_stats(sku):
+    """Get sales statistics for a specific product."""
+    conn = db()
+    today = date.today()
+
+    # Monthly sales aggregation (last 12 months)
+    months = []
+    for i in range(11, -1, -1):
+        d = today.replace(day=1) - timedelta(days=i * 30)
+        month_start = d.replace(day=1).isoformat()
+        # Next month start
+        if d.month == 12:
+            next_month = d.replace(year=d.year + 1, month=1, day=1)
+        else:
+            next_month = d.replace(month=d.month + 1, day=1)
+        month_end = next_month.isoformat()
+        row = conn.execute(
+            """SELECT COALESCE(SUM(si.quantity), 0) as total_sold
+            FROM sale_items si JOIN sales s ON si.sale_id = s.id
+            WHERE si.sku = ? AND s.date >= ? AND s.date < ? AND s.status != 'Voided'""",
+            (sku, month_start, month_end)
+        ).fetchone()
+        months.append({
+            "label": d.strftime("%m/%Y"),
+            "sold": row["total_sold"] if row else 0
+        })
+
+    # Summary metrics
+    now = today.isoformat()
+    d30 = (today - timedelta(days=30)).isoformat()
+    d90 = (today - timedelta(days=90)).isoformat()
+    d365 = (today - timedelta(days=365)).isoformat()
+
+    def sold_since(since):
+        r = conn.execute(
+            """SELECT COALESCE(SUM(si.quantity), 0) as total
+            FROM sale_items si JOIN sales s ON si.sale_id = s.id
+            WHERE si.sku = ? AND s.date >= ? AND s.status != 'Voided'""",
+            (sku, since)
+        ).fetchone()
+        return r["total"] if r else 0
+
+    last_sold_row = conn.execute(
+        """SELECT s.date FROM sale_items si JOIN sales s ON si.sale_id = s.id
+        WHERE si.sku = ? AND s.status != 'Voided'
+        ORDER BY s.date DESC LIMIT 1""",
+        (sku,)
+    ).fetchone()
+
+    sold_365 = sold_since(d365)
+    weekly_avg = round(sold_365 / 52, 2) if sold_365 > 0 else 0
+
+    return jsonify({
+        "months": months,
+        "sold_30": sold_since(d30),
+        "sold_90": sold_since(d90),
+        "sold_365": sold_365,
+        "weekly_avg": weekly_avg,
+        "last_sold": last_sold_row["date"] if last_sold_row else "Never"
+    })
+
+
+@app.route("/api/inventory/<sku>/purchases", methods=["GET"])
+@login_required
+def get_inventory_purchases(sku):
+    """Get purchase history for a specific product."""
+    rows = db().execute(
+        "SELECT * FROM purchases WHERE sku = ? ORDER BY date DESC", (sku,)
+    ).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/inventory/<sku>/purchases", methods=["POST"])
+@login_required
+def add_inventory_purchase(sku):
+    """Add a purchase record for a product and update inventory qty."""
+    conn = db()
+    data = request.get_json()
+    now_str = datetime.now().isoformat()
+    qty = int(data.get("quantity", 0))
+    cost = float(data.get("cost_price", 0))
+    sell = float(data.get("selling_price", 0))
+
+    conn.execute(
+        """INSERT INTO purchases (sku, date, supplier, quantity, cost_price, selling_price,
+        total_cost, invoice_number, notes, created)
+        VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        (sku, data.get("date", date.today().isoformat()),
+         data.get("supplier", ""), qty, cost, sell,
+         float(data.get("total_cost", cost * qty)),
+         data.get("invoice_number", ""), data.get("notes", ""), now_str)
+    )
+
+    # Update inventory quantity
+    if qty > 0:
+        conn.execute(
+            "UPDATE inventory SET quantity = quantity + ?, last_updated = ? WHERE sku = ?",
+            (qty, date.today().isoformat(), sku)
+        )
+
+    # Audit log
+    conn.execute(
+        "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) VALUES (?,?,?,?,?,?,?)",
+        (sku, "Purchase",
+         f"Purchased {qty} units from {data.get('supplier', 'N/A')} @ ₹{cost:.2f}",
+         "", data.get("invoice_number", ""), qty, now_str)
+    )
+
+    conn.commit()
+    return jsonify({"success": True}), 201
+
+
+@app.route("/api/inventory/<sku>/sales", methods=["GET"])
+@login_required
+def get_inventory_sales(sku):
+    """Get all sale transactions for a specific product."""
+    conn = db()
+    rows = conn.execute(
+        """SELECT si.*, s.receipt_number, s.date as sale_date, s.status,
+        i.cost_price, i.category
+        FROM sale_items si
+        JOIN sales s ON si.sale_id = s.id
+        JOIN inventory i ON si.sku = i.sku
+        WHERE si.sku = ? AND s.status != 'Voided'
+        ORDER BY s.date DESC""",
+        (sku,)
+    ).fetchall()
+
+    results = []
+    for r in rows:
+        row = dict(r)
+        cost = float(row.get("cost_price", 0))
+        price = float(row.get("unit_price", 0))
+        qty = int(row.get("quantity", 1))
+        profit = (price - cost) * qty
+        margin = ((price - cost) / price * 100) if price > 0 else 0
+        markup = ((price - cost) / cost * 100) if cost > 0 else 0
+        row["profit"] = round(profit, 2)
+        row["margin_pct"] = round(margin, 2)
+        row["markup_pct"] = round(markup, 2)
+        results.append(row)
+
+    return jsonify(results)
 
 
 # ---------------------------------------------------------------------------
@@ -642,6 +848,12 @@ def create_sale():
                 "UPDATE inventory SET quantity = MAX(0, quantity - ?), last_updated = ? WHERE sku = ?",
                 (qty, today, sku)
             )
+            # Audit log: sale
+            conn.execute(
+                "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) VALUES (?,?,?,?,?,?,?)",
+                (sku, "Sale", f"Sold {qty} unit(s) — Receipt {receipt_number}",
+                 "", receipt_number, -qty, timestamp)
+            )
 
     # ---- AUTO-CREATE CUSTOMER ----
     cust_phone = sale.get("customer_phone", "").strip()
@@ -732,11 +944,19 @@ def void_sale(receipt_number):
 
     # Restore inventory quantities
     today = date.today().isoformat()
+    now_str = datetime.now().isoformat()
     for item in items:
         if item["sku"]:
             conn.execute(
                 "UPDATE inventory SET quantity = quantity + ?, last_updated = ? WHERE sku = ?",
                 (item["quantity"], today, item["sku"])
+            )
+            # Audit log: void refund
+            conn.execute(
+                "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) VALUES (?,?,?,?,?,?,?)",
+                (item["sku"], "Void Refund",
+                 f"Refunded {item['quantity']} unit(s) — Receipt {receipt_number}. Reason: {reason or 'N/A'}",
+                 "", receipt_number, item["quantity"], now_str)
             )
 
     # Mark sale as voided

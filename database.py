@@ -130,7 +130,7 @@ class PgConnectionWrapper:
 
     # Tables with SERIAL id columns (for RETURNING id)
     # Only tables where id is auto-generated — NOT inventory (sku PK), users (text PK), settings (key PK)
-    _SERIAL_TABLES = {"suppliers", "customers", "sales", "sale_items"}
+    _SERIAL_TABLES = {"suppliers", "customers", "sales", "sale_items", "inventory_log", "purchases"}
 
     def execute(self, sql, params=None):
         """Execute SQL with automatic dialect translation."""
@@ -356,11 +356,40 @@ CREATE TABLE IF NOT EXISTS held_transactions (
     held_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS inventory_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sku TEXT NOT NULL,
+    action TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    old_value TEXT DEFAULT '',
+    new_value TEXT DEFAULT '',
+    qty_change REAL DEFAULT 0,
+    created TEXT NOT NULL,
+    FOREIGN KEY (sku) REFERENCES inventory(sku)
+);
+
+CREATE TABLE IF NOT EXISTS purchases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sku TEXT NOT NULL,
+    date TEXT NOT NULL,
+    supplier TEXT DEFAULT '',
+    quantity INTEGER DEFAULT 0,
+    cost_price REAL DEFAULT 0,
+    selling_price REAL DEFAULT 0,
+    total_cost REAL DEFAULT 0,
+    invoice_number TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created TEXT NOT NULL,
+    FOREIGN KEY (sku) REFERENCES inventory(sku)
+);
+
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
 CREATE INDEX IF NOT EXISTS idx_sales_receipt ON sales(receipt_number);
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_category ON inventory(category);
 CREATE INDEX IF NOT EXISTS idx_inventory_quantity ON inventory(quantity);
+CREATE INDEX IF NOT EXISTS idx_inventory_log_sku ON inventory_log(sku);
+CREATE INDEX IF NOT EXISTS idx_purchases_sku ON purchases(sku);
 """
 
 PG_SCHEMA = """
@@ -463,11 +492,40 @@ CREATE TABLE IF NOT EXISTS held_transactions (
     held_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS inventory_log (
+    id SERIAL PRIMARY KEY,
+    sku TEXT NOT NULL,
+    action TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    old_value TEXT DEFAULT '',
+    new_value TEXT DEFAULT '',
+    qty_change DOUBLE PRECISION DEFAULT 0,
+    created TEXT NOT NULL,
+    FOREIGN KEY (sku) REFERENCES inventory(sku)
+);
+
+CREATE TABLE IF NOT EXISTS purchases (
+    id SERIAL PRIMARY KEY,
+    sku TEXT NOT NULL,
+    date TEXT NOT NULL,
+    supplier TEXT DEFAULT '',
+    quantity INTEGER DEFAULT 0,
+    cost_price DOUBLE PRECISION DEFAULT 0,
+    selling_price DOUBLE PRECISION DEFAULT 0,
+    total_cost DOUBLE PRECISION DEFAULT 0,
+    invoice_number TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created TEXT NOT NULL,
+    FOREIGN KEY (sku) REFERENCES inventory(sku)
+);
+
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
 CREATE INDEX IF NOT EXISTS idx_sales_receipt ON sales(receipt_number);
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_category ON inventory(category);
 CREATE INDEX IF NOT EXISTS idx_inventory_quantity ON inventory(quantity);
+CREATE INDEX IF NOT EXISTS idx_inventory_log_sku ON inventory_log(sku);
+CREATE INDEX IF NOT EXISTS idx_purchases_sku ON purchases(sku);
 """
 
 
@@ -508,6 +566,23 @@ def _run_sqlite_migrations(conn):
         if col_name not in cols:
             conn.execute(sql)
             print(f"[DB] Migration: added column sales.{col_name}")
+
+    # Create new tables if they don't exist (for existing databases)
+    conn.execute("""CREATE TABLE IF NOT EXISTS inventory_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sku TEXT NOT NULL, action TEXT NOT NULL, description TEXT DEFAULT '',
+        old_value TEXT DEFAULT '', new_value TEXT DEFAULT '', qty_change REAL DEFAULT 0,
+        created TEXT NOT NULL, FOREIGN KEY (sku) REFERENCES inventory(sku))""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sku TEXT NOT NULL, date TEXT NOT NULL, supplier TEXT DEFAULT '',
+        quantity INTEGER DEFAULT 0, cost_price REAL DEFAULT 0, selling_price REAL DEFAULT 0,
+        total_cost REAL DEFAULT 0, invoice_number TEXT DEFAULT '', notes TEXT DEFAULT '',
+        created TEXT NOT NULL, FOREIGN KEY (sku) REFERENCES inventory(sku))""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_log_sku ON inventory_log(sku)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_purchases_sku ON purchases(sku)")
+    conn.commit()
+    print("[DB] Migration: ensured inventory_log and purchases tables exist")
 
     # Seed suppliers from inventory
     now = datetime.now().isoformat()
@@ -762,6 +837,12 @@ def export_all_data():
         sales_list.append(sale)
     data["sales"] = sales_list
 
+    rows = conn.execute("SELECT * FROM inventory_log ORDER BY created DESC").fetchall()
+    data["inventory_log"] = [dict(r) for r in rows]
+
+    rows = conn.execute("SELECT * FROM purchases ORDER BY date DESC").fetchall()
+    data["purchases"] = [dict(r) for r in rows]
+
     return data
 
 
@@ -893,5 +974,40 @@ def import_all_data(data):
             except Exception:
                 pass
     print(f"  [IMPORT] Sales: {imported['sales']}")
+
+    # --- Inventory Log ---
+    imported["inventory_log"] = 0
+    for l in data.get("inventory_log", []):
+        try:
+            conn.execute(
+                "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (l["sku"], l["action"], l.get("description", ""),
+                 l.get("old_value", ""), l.get("new_value", ""),
+                 float(l.get("qty_change", 0)), l.get("created", now))
+            )
+            imported["inventory_log"] += 1
+        except Exception as e:
+            print(f"  [WARN] Inventory log: {e}")
+    conn.commit()
+    print(f"  [IMPORT] Inventory log: {imported['inventory_log']}")
+
+    # --- Purchases ---
+    imported["purchases"] = 0
+    for p in data.get("purchases", []):
+        try:
+            conn.execute(
+                "INSERT INTO purchases (sku, date, supplier, quantity, cost_price, selling_price, total_cost, "
+                "invoice_number, notes, created) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (p["sku"], p["date"], p.get("supplier", ""), int(p.get("quantity", 0)),
+                 float(p.get("cost_price", 0)), float(p.get("selling_price", 0)),
+                 float(p.get("total_cost", 0)), p.get("invoice_number", ""),
+                 p.get("notes", ""), p.get("created", now))
+            )
+            imported["purchases"] += 1
+        except Exception as e:
+            print(f"  [WARN] Purchase: {e}")
+    conn.commit()
+    print(f"  [IMPORT] Purchases: {imported['purchases']}")
 
     return imported

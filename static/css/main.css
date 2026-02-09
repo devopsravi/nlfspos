@@ -44,6 +44,25 @@ body.col-resizing {
   user-select: none !important;
 }
 
+/* --- Stock History Modal Tabs --- */
+.sh-tab {
+  color: #6b7280;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  transition: all 0.15s;
+}
+.sh-tab:hover {
+  color: #3a7bd5;
+  background: #eff6ff;
+}
+.sh-tab.active {
+  color: #fff;
+  background: #3a7bd5;
+  border-color: #3a7bd5;
+}
+.sh-panel.hidden { display: none; }
+
 /* --- Sidebar (matches reference dark blue-gray) --- */
 .sidebar {
   background: #2c3e50;
