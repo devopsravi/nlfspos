@@ -128,8 +128,9 @@ class PgConnectionWrapper:
         # Let me handle this differently with a flag
         return sql
 
-    # Tables known to have SERIAL id columns (for RETURNING id)
-    _SERIAL_TABLES = {"suppliers", "customers", "inventory", "sales", "sale_items"}
+    # Tables with SERIAL id columns (for RETURNING id)
+    # Only tables where id is auto-generated — NOT inventory (sku PK), users (text PK), settings (key PK)
+    _SERIAL_TABLES = {"suppliers", "customers", "sales", "sale_items"}
 
     def execute(self, sql, params=None):
         """Execute SQL with automatic dialect translation."""
