@@ -34,10 +34,10 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="/static/css/main.css?v=7" />
-  <link rel="stylesheet" href="/static/css/pos.css?v=7" />
-  <link rel="stylesheet" href="/static/css/labels.css?v=7" />
-  <link rel="stylesheet" href="/static/css/receipt.css?v=7" />
+  <link rel="stylesheet" href="/static/css/main.css?v=8" />
+  <link rel="stylesheet" href="/static/css/pos.css?v=8" />
+  <link rel="stylesheet" href="/static/css/labels.css?v=8" />
+  <link rel="stylesheet" href="/static/css/receipt.css?v=8" />
 </head>
 <body class="bg-[#ecf0f1] text-gray-800 min-h-screen flex">
 
@@ -728,7 +728,13 @@
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4"/></svg>
                 Sales Graph
               </h3>
-              <span class="text-xs bg-teal-500 text-white px-3 py-1 rounded font-medium">Last 7 Days</span>
+              <select id="chartRange" class="text-xs bg-teal-500 text-white px-3 py-1.5 rounded font-medium cursor-pointer outline-none">
+                <option value="7">Last 7 Days</option>
+                <option value="30">Last Month</option>
+                <option value="90">Last 3 Months</option>
+                <option value="180">Last 6 Months</option>
+                <option value="365">Last 12 Months</option>
+              </select>
             </div>
             <div id="salesChart" class="min-h-[220px]">
               <!-- Filled by JS -->
@@ -2004,17 +2010,17 @@
   </div>
 
   <!-- JS Modules (v= cache-buster) -->
-  <script src="/static/js/app.js?v=7"></script>
-  <script src="/static/js/inventory.js?v=7"></script>
-  <script src="/static/js/pos.js?v=7"></script>
-  <script src="/static/js/labels.js?v=7"></script>
-  <script src="/static/js/sales.js?v=7"></script>
-  <script src="/static/js/reports.js?v=7"></script>
-  <script src="/static/js/transactions.js?v=7"></script>
-  <script src="/static/js/settings.js?v=7"></script>
-  <script src="/static/js/suppliers.js?v=7"></script>
-  <script src="/static/js/customers.js?v=7"></script>
-  <script src="/static/js/orders.js?v=7"></script>
+  <script src="/static/js/app.js?v=8"></script>
+  <script src="/static/js/inventory.js?v=8"></script>
+  <script src="/static/js/pos.js?v=8"></script>
+  <script src="/static/js/labels.js?v=8"></script>
+  <script src="/static/js/sales.js?v=8"></script>
+  <script src="/static/js/reports.js?v=8"></script>
+  <script src="/static/js/transactions.js?v=8"></script>
+  <script src="/static/js/settings.js?v=8"></script>
+  <script src="/static/js/suppliers.js?v=8"></script>
+  <script src="/static/js/customers.js?v=8"></script>
+  <script src="/static/js/orders.js?v=8"></script>
 
   <!-- Inventory column resizer -->
   <script>

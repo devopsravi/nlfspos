@@ -8,6 +8,7 @@ const Sales = {
   },
 
   async loadDashboard() {
+    this._chartSales = null; // clear cache so chart fetches fresh data
     try {
       const res = await fetch('/api/sales/dashboard');
       const d = await res.json();
@@ -80,33 +81,91 @@ const Sales = {
     }
   },
 
+  _chartSales: null,
+
   async renderSalesChart(dashData) {
     const chartEl = document.getElementById('salesChart');
     if (!chartEl) return;
 
-    try {
-      const res = await fetch('/api/sales');
-      const sales = await res.json();
+    // Bind range dropdown once
+    const rangeEl = document.getElementById('chartRange');
+    if (rangeEl && !rangeEl._bound) {
+      rangeEl._bound = true;
+      rangeEl.onchange = () => this.renderSalesChart(dashData);
+    }
 
-      // Build last 7 days
-      const days = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        days.push(d.toISOString().split('T')[0]);
+    const rangeDays = parseInt(rangeEl?.value || '7');
+
+    try {
+      // Cache sales data so dropdown changes don't re-fetch
+      if (!this._chartSales) {
+        const res = await fetch('/api/sales');
+        this._chartSales = (await res.json()).filter(s => (s.status || 'Complete') !== 'Voided');
+      }
+      const sales = this._chartSales;
+
+      // Build time buckets based on range
+      const buckets = [];
+      const labels = [];
+      const now = new Date();
+
+      if (rangeDays <= 7) {
+        // Daily buckets
+        for (let i = rangeDays - 1; i >= 0; i--) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const key = d.toISOString().split('T')[0];
+          buckets.push(key);
+          const isToday = i === 0;
+          labels.push({ text: d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' }), isLast: isToday });
+        }
+      } else if (rangeDays <= 90) {
+        // Weekly buckets
+        const weeks = Math.ceil(rangeDays / 7);
+        for (let i = weeks - 1; i >= 0; i--) {
+          const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() - i * 7);
+          const weekStart = new Date(weekEnd); weekStart.setDate(weekStart.getDate() - 6);
+          const key = weekStart.toISOString().split('T')[0];
+          buckets.push(key);
+          const label = weekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+          labels.push({ text: label, isLast: i === 0 });
+        }
+      } else {
+        // Monthly buckets
+        const months = Math.ceil(rangeDays / 30);
+        for (let i = months - 1; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = d.toISOString().split('T')[0].substring(0, 7); // YYYY-MM
+          buckets.push(key);
+          labels.push({ text: d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }), isLast: i === 0 });
+        }
       }
 
-      const dailyTotals = {};
-      days.forEach(day => dailyTotals[day] = 0);
+      // Aggregate sales into buckets
+      const totals = {};
+      buckets.forEach(b => totals[b] = 0);
+
       sales.forEach(s => {
-        if ((s.status || 'Complete') === 'Voided') return; // exclude voided
         const sDate = s.date || (s.timestamp ? s.timestamp.split('T')[0] : '');
-        if (dailyTotals[sDate] !== undefined) {
-          dailyTotals[sDate] += s.grand_total || 0;
+        if (!sDate) return;
+
+        if (rangeDays <= 7) {
+          if (totals[sDate] !== undefined) totals[sDate] += s.grand_total || 0;
+        } else if (rangeDays <= 90) {
+          // Find which weekly bucket this falls into
+          const sd = new Date(sDate + 'T00:00');
+          for (let i = 0; i < buckets.length; i++) {
+            const bStart = new Date(buckets[i] + 'T00:00');
+            const bEnd = new Date(bStart); bEnd.setDate(bEnd.getDate() + 6);
+            if (sd >= bStart && sd <= bEnd) { totals[buckets[i]] += s.grand_total || 0; break; }
+          }
+        } else {
+          // Monthly bucket
+          const monthKey = sDate.substring(0, 7);
+          if (totals[monthKey] !== undefined) totals[monthKey] += s.grand_total || 0;
         }
       });
 
-      const values = days.map(d => dailyTotals[d]);
+      const values = buckets.map(b => totals[b]);
       const max = Math.max(...values, 1);
 
       // Format currency short (e.g. ₹1.2L, ₹50K, ₹800)
@@ -116,7 +175,7 @@ const Sales = {
         return '₹' + Math.round(v);
       };
 
-      // Y-axis gridlines (5 steps)
+      // Y-axis gridlines
       const steps = 4;
       let gridHtml = '';
       for (let i = steps; i >= 0; i--) {
@@ -129,21 +188,21 @@ const Sales = {
       }
 
       // Bar chart
-      const barWidth = `calc((100% - ${(days.length - 1) * 8}px) / ${days.length})`;
+      const gap = buckets.length > 12 ? 4 : 8;
+      const maxBarW = buckets.length > 12 ? 28 : 40;
+      const barWidth = `calc((100% - ${(buckets.length - 1) * gap}px) / ${buckets.length})`;
       const barsHtml = values.map((v, i) => {
         const pct = max > 0 ? Math.max((v / max) * 100, 1) : 1;
-        const dayLabel = new Date(days[i] + 'T00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' });
-        const isToday = i === days.length - 1;
-        const barColor = isToday
+        const isLast = labels[i].isLast;
+        const barColor = isLast
           ? 'background: linear-gradient(to top, #0d9488, #14b8a6)'
           : 'background: linear-gradient(to top, #3b82f6, #60a5fa)';
         return `
           <div class="flex flex-col items-center" style="width:${barWidth}">
             <div class="w-full flex flex-col items-center justify-end" style="height:160px">
-              <span class="text-[9px] font-semibold mb-1 ${isToday ? 'text-teal-700' : 'text-blue-600'}">${v > 0 ? shortCur(v) : ''}</span>
-              <div class="w-full max-w-[40px] rounded-t-md shadow-sm" style="height:${pct}%;min-height:3px;${barColor};transition:height 0.6s ease"></div>
+              <span class="text-[9px] font-semibold mb-1 ${isLast ? 'text-teal-700' : 'text-blue-600'}">${v > 0 ? shortCur(v) : ''}</span>
+              <div class="w-full rounded-t-md shadow-sm" style="max-width:${maxBarW}px;height:${pct}%;min-height:3px;${barColor};transition:height 0.6s ease"></div>
             </div>
-            <span class="text-[10px] mt-1.5 ${isToday ? 'text-teal-700 font-bold' : 'text-gray-500'}">${dayLabel}</span>
           </div>`;
       }).join('');
 
@@ -151,14 +210,12 @@ const Sales = {
         <div class="relative pl-10 pr-2 pt-2 pb-0" style="height:200px">
           <div class="relative w-full" style="height:160px">${gridHtml}</div>
         </div>
-        <div class="flex items-end justify-between gap-2 pl-10 pr-2" style="margin-top:-160px;height:160px;position:relative;z-index:1">
+        <div class="flex items-end justify-between pl-10 pr-2" style="gap:${gap}px;margin-top:-160px;height:160px;position:relative;z-index:1">
           ${barsHtml}
         </div>
         <div class="flex justify-between pl-10 pr-2">
-          ${values.map((_, i) => {
-            const dayLabel = new Date(days[i] + 'T00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' });
-            const isToday = i === days.length - 1;
-            return `<span class="text-[10px] text-center ${isToday ? 'text-teal-700 font-bold' : 'text-gray-500'}" style="width:${barWidth}">${dayLabel}</span>`;
+          ${labels.map((l, i) => {
+            return `<span class="text-[10px] text-center ${l.isLast ? 'text-teal-700 font-bold' : 'text-gray-500'}" style="width:${barWidth}">${l.text}</span>`;
           }).join('')}
         </div>`;
     } catch (e) {
