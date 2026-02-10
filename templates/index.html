@@ -34,10 +34,10 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="/static/css/main.css?v=6" />
-  <link rel="stylesheet" href="/static/css/pos.css?v=6" />
-  <link rel="stylesheet" href="/static/css/labels.css?v=6" />
-  <link rel="stylesheet" href="/static/css/receipt.css?v=6" />
+  <link rel="stylesheet" href="/static/css/main.css?v=7" />
+  <link rel="stylesheet" href="/static/css/pos.css?v=7" />
+  <link rel="stylesheet" href="/static/css/labels.css?v=7" />
+  <link rel="stylesheet" href="/static/css/receipt.css?v=7" />
 </head>
 <body class="bg-[#ecf0f1] text-gray-800 min-h-screen flex">
 
@@ -188,7 +188,7 @@
             <!-- Cart Table (scrollable) -->
             <div class="flex-1 overflow-y-auto min-h-0">
               <table class="w-full text-sm" id="cartTable">
-                <thead class="bg-[#051c2c] text-white sticky top-0 z-10">
+                <thead class="bg-teal-600 text-white sticky top-0 z-10">
                   <tr>
                     <th class="px-4 py-2.5 text-left w-20 text-sm font-semibold">Qty</th>
                     <th class="px-4 py-2.5 text-left text-sm font-semibold">Name</th>
@@ -282,7 +282,7 @@
       <section id="page-inventory" class="page p-5 hidden">
 
         <!-- Blue Header Bar (like reference) -->
-        <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 text-base font-semibold flex items-center gap-2">
+        <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 text-base font-semibold flex items-center gap-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
           Manage NLF Inventory
         </div>
@@ -320,7 +320,7 @@
         <!-- Inventory Table (like reference image) -->
         <div class="bg-white rounded-b-lg shadow-sm border-x border-b overflow-x-auto">
           <table class="text-sm" id="invTable" style="table-layout:fixed;width:100%;min-width:1100px;">
-            <thead class="bg-[#051c2c] text-white text-xs uppercase tracking-wide">
+            <thead class="bg-teal-600 text-white text-xs uppercase tracking-wide">
               <tr>
                 <th class="inv-th" style="width:110px;">SKU<div class="resizer"></div></th>
                 <th class="inv-th" style="width:220px;">Name<div class="resizer"></div></th>
@@ -433,7 +433,7 @@
         <div id="stockHistoryModal" class="modal-overlay hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[92vh] flex flex-col">
             <!-- Header -->
-            <div class="px-6 py-4 border-b flex items-center justify-between bg-[#051c2c] text-white rounded-t-2xl">
+            <div class="px-6 py-4 border-b flex items-center justify-between bg-teal-600 text-white rounded-t-2xl">
               <h3 id="stockHistoryTitle" class="font-semibold text-lg">Stock History</h3>
               <button id="stockHistoryClose" class="text-white/80 hover:text-white text-2xl leading-none">&times;</button>
             </div>
@@ -482,7 +482,7 @@
               <div id="shTabPurchase" class="sh-panel hidden">
                 <div class="flex items-center justify-between mb-3">
                   <h4 class="font-medium text-gray-700">Purchase History</h4>
-                  <button id="shAddPurchaseBtn" class="bg-[#051c2c] text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700">+ Add Purchase</button>
+                  <button id="shAddPurchaseBtn" class="bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700">+ Add Purchase</button>
                 </div>
                 <!-- Add Purchase Form (hidden by default) -->
                 <div id="shPurchaseForm" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -570,7 +570,7 @@
         <div id="txnDetailModal" class="modal-overlay hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[92vh] flex flex-col">
             <!-- Header -->
-            <div class="px-6 py-4 border-b flex items-center justify-between bg-[#051c2c] text-white rounded-t-2xl">
+            <div class="px-6 py-4 border-b flex items-center justify-between bg-teal-600 text-white rounded-t-2xl">
               <h3 class="font-semibold text-lg">Transaction Details</h3>
               <button id="txnDetailClose" class="text-white/80 hover:text-white text-2xl leading-none">&times;</button>
             </div>
@@ -871,7 +871,7 @@
         <!-- Report Table -->
         <div class="bg-white rounded-lg shadow-sm border overflow-x-auto">
           <table class="w-full text-sm" id="reportTable">
-            <thead id="rptHead" class="bg-[#051c2c] text-white text-xs uppercase tracking-wide">
+            <thead id="rptHead" class="bg-teal-600 text-white text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left"></th>
                 <th class="px-4 py-3 text-right"># Sales</th>
@@ -942,7 +942,7 @@
         <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-sm" id="txnTable">
-              <thead class="bg-[#051c2c] text-white text-xs uppercase tracking-wide">
+              <thead class="bg-teal-600 text-white text-xs uppercase tracking-wide">
                 <tr>
                   <th class="px-4 py-3 text-left w-10"><input type="checkbox" id="txnCheckAll" class="rounded" /></th>
                   <th class="px-4 py-3 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
@@ -977,7 +977,7 @@
 
         <!-- ===== SUB: Staff & Admins ===== -->
         <div id="settings-staff" class="settings-sub">
-          <div class="bg-[#051c2c] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+          <div class="bg-teal-600 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
             <span class="flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
               Manage POS Users and Administrators
@@ -994,7 +994,7 @@
           </div>
           <div class="bg-white rounded-b-lg shadow-sm border-x border-b overflow-x-auto">
             <table class="w-full text-xs">
-              <thead class="bg-[#051c2c] text-white text-[10px] uppercase tracking-wide">
+              <thead class="bg-teal-600 text-white text-[10px] uppercase tracking-wide">
                 <tr>
                   <th class="px-3 py-2.5 text-left font-semibold">ID</th>
                   <th class="px-3 py-2.5 text-left font-semibold">Username</th>
@@ -1017,7 +1017,7 @@
         <div id="settings-store" class="settings-sub hidden">
           <div class="max-w-2xl">
             <div class="bg-white rounded-lg shadow-sm border">
-              <div class="bg-[#051c2c] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
+              <div class="bg-teal-600 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                 Store Information
               </div>
@@ -1075,7 +1075,7 @@
         <div id="settings-pos" class="settings-sub hidden">
           <div class="max-w-2xl">
             <div class="bg-white rounded-lg shadow-sm border">
-              <div class="bg-[#051c2c] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
+              <div class="bg-teal-600 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m5-9v9m4-9v9m5-9l2 9"/></svg>
                 POS & Payment Settings
               </div>
@@ -1122,7 +1122,7 @@
         <!-- ===== ADD/EDIT CUSTOMER MODAL ===== -->
         <div id="customerModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
           <div class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4">
-            <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+            <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
               <h3 id="customerModalTitle" class="font-semibold text-sm">Add Customer</h3>
               <button id="customerModalClose" onclick="document.getElementById('customerModal').classList.add('hidden')" class="text-white/70 hover:text-white text-xl">&times;</button>
             </div>
@@ -1164,7 +1164,7 @@
         <!-- ===== ADD/EDIT SUPPLIER MODAL ===== -->
         <div id="supplierModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
           <div class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4">
-            <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+            <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
               <h3 id="supplierModalTitle" class="font-semibold text-sm">Add Supplier</h3>
               <button id="supplierModalClose" class="text-white/70 hover:text-white text-xl">&times;</button>
             </div>
@@ -1210,7 +1210,7 @@
         <!-- ===== ADD/EDIT USER MODAL ===== -->
         <div id="userModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
           <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg mx-4">
-            <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+            <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
               <h3 id="userModalTitle" class="font-semibold text-sm">Add User</h3>
               <button id="userModalClose" class="text-white/70 hover:text-white text-xl">&times;</button>
             </div>
@@ -1287,7 +1287,7 @@
            PAGE: Suppliers (standalone page under Items menu group)
            ================================================================ -->
       <section id="page-suppliers" class="page hidden p-6" style="display:none">
-        <div class="bg-[#051c2c] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+        <div class="bg-teal-600 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
           <span class="flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
             Manage your suppliers
@@ -1316,7 +1316,7 @@
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm" id="suppliersTable">
-              <thead class="bg-[#051c2c] text-white text-xs uppercase tracking-wide">
+              <thead class="bg-teal-600 text-white text-xs uppercase tracking-wide">
                 <tr>
                   <th class="px-4 py-2.5 text-left w-10"><input type="checkbox" id="supplierCheckAll" class="rounded" /></th>
                   <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
@@ -1343,7 +1343,7 @@
            PAGE: Customers (standalone page under Items menu group)
            ================================================================ -->
       <section id="page-customers" class="page hidden p-6" style="display:none">
-        <div class="bg-[#051c2c] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+        <div class="bg-teal-600 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
           <span class="flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             Manage your customers
@@ -1372,7 +1372,7 @@
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm" id="customersTable">
-              <thead class="bg-[#051c2c] text-white text-xs uppercase tracking-wide">
+              <thead class="bg-teal-600 text-white text-xs uppercase tracking-wide">
                 <tr>
                   <th class="px-4 py-2.5 text-left w-10"><input type="checkbox" id="customerCheckAll" class="rounded" /></th>
                   <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="id">ID <span class="opacity-50">↕</span></th>
@@ -1400,7 +1400,7 @@
            PAGE: Purchase Orders (standalone page under Items menu group)
            ================================================================ -->
       <section id="page-orders" class="page hidden p-6" style="display:none">
-        <div class="bg-[#051c2c] text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+        <div class="bg-teal-600 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
           <span class="flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
             Purchase Orders
@@ -1444,7 +1444,7 @@
           <!-- Table -->
           <div class="overflow-x-auto">
             <table class="w-full text-sm" id="ordersTable">
-              <thead class="bg-[#051c2c] text-white text-xs uppercase tracking-wide">
+              <thead class="bg-teal-600 text-white text-xs uppercase tracking-wide">
                 <tr>
                   <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="order_number">Order #</th>
                   <th class="px-4 py-2.5 text-left cursor-pointer hover:bg-white/10" data-sort="supplier">Supplier</th>
@@ -1471,7 +1471,7 @@
       <!-- ===== CREATE/EDIT ORDER MODAL ===== -->
       <div id="orderModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
-          <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+          <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
             <h3 id="orderModalTitle" class="font-semibold text-sm">New Purchase Order</h3>
             <button id="orderModalClose" class="text-white/70 hover:text-white text-xl">&times;</button>
           </div>
@@ -1570,7 +1570,7 @@
       <!-- ===== RECEIVE ORDER MODAL ===== -->
       <div id="receiveOrderModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
-          <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+          <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
             <h3 id="receiveOrderTitle" class="font-semibold text-sm">Receive Order</h3>
             <button id="receiveOrderClose" class="text-white/70 hover:text-white text-xl">&times;</button>
           </div>
@@ -1611,7 +1611,7 @@
       <div id="orderItemDetailModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[70]">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-sm mx-4">
           <!-- Header -->
-          <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+          <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
             <h3 class="font-semibold text-sm">Items Details</h3>
             <button id="orderItemDetailClose" class="text-white/70 hover:text-white text-xl leading-none">&times;</button>
           </div>
@@ -1686,7 +1686,7 @@
       <!-- ===== ORDER DETAIL VIEW MODAL ===== -->
       <div id="orderViewModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[65]">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
-          <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+          <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
             <h3 id="orderViewTitle" class="font-semibold text-sm">Order Details</h3>
             <button id="orderViewClose" class="text-white/70 hover:text-white text-xl leading-none">&times;</button>
           </div>
@@ -1976,7 +1976,7 @@
   <!-- ===== SUPPLIER ITEMS MODAL (top-level so it's always accessible) ===== -->
   <div id="supplierItemsModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
     <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
-      <div class="bg-[#051c2c] text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
+      <div class="bg-teal-600 text-white rounded-t-lg px-5 py-3 flex items-center justify-between">
         <h3 id="supplierItemsTitle" class="font-semibold text-sm">Supplier Products</h3>
         <button id="supplierItemsClose" class="text-white/70 hover:text-white text-xl">&times;</button>
       </div>
@@ -2004,17 +2004,17 @@
   </div>
 
   <!-- JS Modules (v= cache-buster) -->
-  <script src="/static/js/app.js?v=6"></script>
-  <script src="/static/js/inventory.js?v=6"></script>
-  <script src="/static/js/pos.js?v=6"></script>
-  <script src="/static/js/labels.js?v=6"></script>
-  <script src="/static/js/sales.js?v=6"></script>
-  <script src="/static/js/reports.js?v=6"></script>
-  <script src="/static/js/transactions.js?v=6"></script>
-  <script src="/static/js/settings.js?v=6"></script>
-  <script src="/static/js/suppliers.js?v=6"></script>
-  <script src="/static/js/customers.js?v=6"></script>
-  <script src="/static/js/orders.js?v=6"></script>
+  <script src="/static/js/app.js?v=7"></script>
+  <script src="/static/js/inventory.js?v=7"></script>
+  <script src="/static/js/pos.js?v=7"></script>
+  <script src="/static/js/labels.js?v=7"></script>
+  <script src="/static/js/sales.js?v=7"></script>
+  <script src="/static/js/reports.js?v=7"></script>
+  <script src="/static/js/transactions.js?v=7"></script>
+  <script src="/static/js/settings.js?v=7"></script>
+  <script src="/static/js/suppliers.js?v=7"></script>
+  <script src="/static/js/customers.js?v=7"></script>
+  <script src="/static/js/orders.js?v=7"></script>
 
   <!-- Inventory column resizer -->
   <script>
