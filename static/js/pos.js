@@ -1351,6 +1351,8 @@ const POS = {
     const holdData = {
       items: this.cart.map(c => ({ ...c })),  // clone with discount info preserved
       customer_name: document.getElementById('custName')?.value || '',
+      customer_phone: document.getElementById('custPhone')?.value || '',
+      customer_email: document.getElementById('custEmail')?.value || '',
     };
 
     try {
@@ -1381,7 +1383,13 @@ const POS = {
         list.innerHTML = '<p class="text-gray-400 text-sm">No held transactions</p>';
       } else {
         list.innerHTML = held.map(h => {
-          const total = h.items.reduce((s, i) => s + i.price * i.quantity, 0);
+          const total = h.items.reduce((s, i) => {
+            const lineTotal = i.price * i.quantity;
+            let disc = 0;
+            if (i.discountType === 'percent') disc = lineTotal * Math.min(i.discountValue || 0, 100) / 100;
+            else if (i.discountType === 'flat') disc = Math.min(i.discountValue || 0, lineTotal);
+            return s + (lineTotal - disc);
+          }, 0);
           const itemCount = h.items.reduce((s, i) => s + i.quantity, 0);
           return `
             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
@@ -1411,6 +1419,13 @@ const POS = {
       if (tx) {
         this.cart = tx.items;
         if (tx.customer_name) document.getElementById('custName').value = tx.customer_name;
+        if (tx.customer_phone) document.getElementById('custPhone').value = tx.customer_phone;
+        if (tx.customer_email) document.getElementById('custEmail').value = tx.customer_email;
+        // Refresh maxQty from current stock
+        for (const item of this.cart) {
+          const prod = this.products.find(p => p.sku === item.sku);
+          if (prod) item.maxQty = prod.quantity;
+        }
         this.updateCartUI();
         await fetch(`/api/held/${holdId}`, { method: 'DELETE' });
         this.updateHeldBadge();

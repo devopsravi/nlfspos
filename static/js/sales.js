@@ -19,8 +19,8 @@ const Sales = {
       document.getElementById('dashProfit').textContent = App.currency(d.total_profit);
       const voidsEl = document.getElementById('dashVoids');
       const refundsEl = document.getElementById('dashRefunds');
-      if (voidsEl) voidsEl.textContent = '0';
-      if (refundsEl) refundsEl.textContent = '0';
+      if (voidsEl) voidsEl.textContent = d.voids_count || 0;
+      if (refundsEl) refundsEl.textContent = d.voids_total ? App.currency(d.voids_total) : '0';
 
       // Stats
       const marginPct = d.total_revenue > 0
@@ -175,6 +175,7 @@ const Sales = {
       const byMethod = {};
       let total = 0;
       sales.forEach(s => {
+        if ((s.status || 'Complete') === 'Voided') return; // exclude voided
         const m = s.payment_method || 'Other';
         byMethod[m] = (byMethod[m] || 0) + (s.grand_total || 0);
         total += s.grand_total || 0;

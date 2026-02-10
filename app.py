@@ -11,9 +11,12 @@ import uuid
 import hashlib
 import functools
 import atexit
+import time
+from collections import defaultdict
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
+import bcrypt
 from flask import Flask, jsonify, request, render_template, send_from_directory, Response, session, redirect, url_for, g
 
 from database import (
@@ -22,7 +25,19 @@ from database import (
 )
 
 app = Flask(__name__)
+
+# SECRET_KEY — must be stable in production (random fallback only for local dev)
+_is_production = os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RENDER") or os.environ.get("PRODUCTION")
+if _is_production and not os.environ.get("SECRET_KEY"):
+    raise RuntimeError("SECRET_KEY env var must be set in production")
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(32).hex())
+
+# ---------------------------------------------------------------------------
+# Login rate limiter — simple in-memory, per-IP
+# ---------------------------------------------------------------------------
+_login_attempts = defaultdict(list)   # ip -> [timestamp, ...]
+_LOGIN_WINDOW = 300    # 5-minute window
+_LOGIN_MAX = 10        # max attempts per window
 
 # ---------------------------------------------------------------------------
 # Production config
@@ -106,20 +121,46 @@ def login_page():
 
 @app.route("/api/auth/login", methods=["POST"])
 def api_login():
+    # --- Rate limiting ---
+    ip = request.remote_addr or "unknown"
+    now_ts = time.time()
+    _login_attempts[ip] = [t for t in _login_attempts[ip] if now_ts - t < _LOGIN_WINDOW]
+    if len(_login_attempts[ip]) >= _LOGIN_MAX:
+        return jsonify({"error": "Too many login attempts. Please wait a few minutes."}), 429
+    _login_attempts[ip].append(now_ts)
+
     data = request.get_json()
     username = (data.get("username") or "").strip().lower()
     password = data.get("password") or ""
-    pw_hash = hashlib.sha256(password.encode()).hexdigest()
 
     row = db().execute(
-        "SELECT * FROM users WHERE LOWER(username) = ? AND password = ? AND active = 1",
-        (username, pw_hash)
+        "SELECT * FROM users WHERE LOWER(username) = ? AND active = 1",
+        (username,)
     ).fetchone()
 
     if not row:
         return jsonify({"error": "Invalid username or password"}), 401
 
     user = row_to_dict(row)
+    stored_hash = user.get("password", "")
+
+    # Support both bcrypt hashes (start with $2b$) and legacy SHA256
+    if stored_hash.startswith("$2b$"):
+        if not bcrypt.checkpw(password.encode(), stored_hash.encode()):
+            return jsonify({"error": "Invalid username or password"}), 401
+    else:
+        # Legacy SHA256 check
+        if hashlib.sha256(password.encode()).hexdigest() != stored_hash:
+            return jsonify({"error": "Invalid username or password"}), 401
+        # Auto-upgrade to bcrypt on successful login
+        new_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        db().execute("UPDATE users SET password = ? WHERE id = ?", (new_hash, user["id"]))
+        db().commit()
+
+    # Clear rate-limit on success
+    _login_attempts.pop(ip, None)
+
+    session.permanent = True  # Use PERMANENT_SESSION_LIFETIME (8 hours)
     session["user"] = {
         "id": user["id"],
         "name": user["name"],
@@ -177,7 +218,7 @@ def create_user():
         return jsonify({"error": "Username already exists"}), 409
 
     user_id = uuid.uuid4().hex[:8]
-    pw_hash = hashlib.sha256(password.encode()).hexdigest()
+    pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     created = datetime.now().isoformat()
 
     db().execute(
@@ -214,7 +255,7 @@ def update_user(user_id):
         active = 1 if active_val else 0
 
     if data.get("password"):
-        pw_hash = hashlib.sha256(data["password"].encode()).hexdigest()
+        pw_hash = bcrypt.hashpw(data["password"].encode(), bcrypt.gensalt()).decode()
         db().execute(
             "UPDATE users SET name=?, role=?, phone=?, active=?, password=? WHERE id=?",
             (name, role, phone, active, pw_hash, user_id)
@@ -336,6 +377,14 @@ def add_product():
     product["date_added"] = today
     product["last_updated"] = today
 
+    # Validate required fields
+    if not product.get("name", "").strip():
+        return jsonify({"error": "Product name is required"}), 400
+    if float(product.get("cost_price", 0)) < 0 or float(product.get("selling_price", 0)) < 0:
+        return jsonify({"error": "Prices cannot be negative"}), 400
+    if int(product.get("quantity", 0)) < 0:
+        return jsonify({"error": "Quantity cannot be negative"}), 400
+
     if not product.get("sku"):
         cat_prefix = product.get("category", "GEN")[:3].upper()
         product["sku"] = f"NLF-{cat_prefix}-{uuid.uuid4().hex[:4].upper()}"
@@ -382,6 +431,12 @@ def update_product(sku):
     data = request.get_json()
     today = date.today().isoformat()
     original = row_to_dict(row)
+
+    # Validate
+    if float(data.get("cost_price", original["cost_price"])) < 0 or float(data.get("selling_price", original["selling_price"])) < 0:
+        return jsonify({"error": "Prices cannot be negative"}), 400
+    if int(data.get("quantity", original["quantity"])) < 0:
+        return jsonify({"error": "Quantity cannot be negative"}), 400
 
     conn = db()
     new_cost = float(data.get("cost_price", original["cost_price"]))
@@ -757,7 +812,10 @@ def get_sales():
     for s in sales_rows:
         sale = row_to_dict(s)
         items = db().execute(
-            "SELECT * FROM sale_items WHERE sale_id = ?", (sale["id"],)
+            """SELECT si.*, COALESCE(inv.category, '') as category
+               FROM sale_items si
+               LEFT JOIN inventory inv ON si.sku = inv.sku
+               WHERE si.sale_id = ?""", (sale["id"],)
         ).fetchall()
         sale["items"] = rows_to_list(items)
         # Remove internal sale_id from items
@@ -1043,6 +1101,11 @@ def sales_dashboard():
     ).fetchone()
     total_cost = cost_row["total_cost"]
 
+    # Void/refund counts
+    void_row = conn.execute(
+        "SELECT COUNT(*) as cnt, COALESCE(SUM(grand_total), 0) as total FROM sales WHERE status = 'Voided'"
+    ).fetchone()
+
     return jsonify({
         "today_total": round(today_total, 2),
         "today_count": today_count,
@@ -1061,6 +1124,8 @@ def sales_dashboard():
         "total_revenue": round(total_revenue, 2),
         "total_cost": round(total_cost, 2),
         "total_profit": round(total_revenue - total_cost, 2),
+        "voids_count": void_row["cnt"],
+        "voids_total": round(void_row["total"], 2),
     })
 
 
@@ -1554,7 +1619,7 @@ def receive_order(order_id):
         return jsonify({"error": "Order already fully received"}), 400
 
     received_items = data.get("items", [])
-    cashier = session.get("user", "system")
+    cashier = session.get("user", {}).get("name", "system")
 
     all_received = True
     for ri in received_items:
@@ -1571,13 +1636,22 @@ def receive_order(order_id):
         if not poi:
             continue
 
-        new_received = int(poi.get("received_qty", 0)) + recv_qty
+        ordered_qty = int(poi["quantity"])
+        already_received = int(poi.get("received_qty", 0))
+        # Cap at ordered quantity to prevent over-receiving
+        max_receivable = ordered_qty - already_received
+        if recv_qty > max_receivable:
+            recv_qty = max(max_receivable, 0)
+        if recv_qty <= 0:
+            continue
+
+        new_received = already_received + recv_qty
         conn.execute(
             "UPDATE purchase_order_items SET received_qty = ? WHERE id = ?",
             (new_received, poi["id"])
         )
 
-        if new_received < int(poi["quantity"]):
+        if new_received < ordered_qty:
             all_received = False
 
         # Update inventory stock
@@ -1709,7 +1783,8 @@ def health_check():
             "timestamp": datetime.now().isoformat(),
         })
     except Exception as e:
-        return jsonify({"status": "unhealthy", "engine": engine, "error": str(e)}), 500
+        print(f"[HEALTH] Error: {e}")
+        return jsonify({"status": "unhealthy", "engine": engine}), 500
 
 
 # ---------------------------------------------------------------------------

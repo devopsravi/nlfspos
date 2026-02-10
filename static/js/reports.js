@@ -38,7 +38,9 @@ const Reports = {
 
     try {
       const res = await fetch(`/api/sales?${params}`);
-      this.sales = await res.json();
+      const allSales = await res.json();
+      // Exclude voided sales from all reports
+      this.sales = allSales.filter(s => (s.status || 'Complete') !== 'Voided');
     } catch (e) { this.sales = []; }
 
     // Update header
