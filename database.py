@@ -737,6 +737,39 @@ def _run_sqlite_migrations(conn):
     except Exception:
         pass
 
+    # Migration: normalize currency symbol Rs → ₹
+    curr_row = conn.execute("SELECT value FROM settings WHERE key='currency_symbol'").fetchone()
+    if curr_row and curr_row[0].strip().lower() in ('rs', 'rs.', 'inr'):
+        conn.execute("UPDATE settings SET value='₹' WHERE key='currency_symbol'")
+        print(f"[DB] Migration: currency_symbol '{curr_row[0]}' → '₹'")
+
+    # Migration: convert old NLF-XXX-XXX SKUs to 6-digit random numbers
+    old_sku_rows = conn.execute("SELECT sku FROM inventory WHERE sku LIKE 'NLF-%'").fetchall()
+    if old_sku_rows:
+        # Temporarily disable FK constraints for the migration
+        if not USE_POSTGRES:
+            conn.execute("PRAGMA foreign_keys = OFF")
+        used_skus = {r[0] for r in conn.execute(
+            "SELECT sku FROM inventory WHERE sku IS NOT NULL AND sku != ''"
+        ).fetchall()}
+        for row in old_sku_rows:
+            old_sku = row[0]
+            while True:
+                new_sku = str(random.randint(100000, 999999))
+                if new_sku not in used_skus:
+                    break
+            used_skus.add(new_sku)
+            # Update all referencing tables first, then the parent
+            for tbl in ("sale_items", "inventory_log", "purchase_order_items"):
+                try:
+                    conn.execute(f"UPDATE {tbl} SET sku = ? WHERE sku = ?", (new_sku, old_sku))
+                except Exception:
+                    pass
+            conn.execute("UPDATE inventory SET sku = ? WHERE sku = ?", (new_sku, old_sku))
+        if not USE_POSTGRES:
+            conn.execute("PRAGMA foreign_keys = ON")
+        print(f"[DB] Migration: converted {len(old_sku_rows)} old NLF- SKUs to 6-digit numbers")
+
     conn.commit()
     print("[DB] Migration: ensured inventory_log, purchases, and purchase_orders tables exist")
 
