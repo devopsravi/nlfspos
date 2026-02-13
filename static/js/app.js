@@ -492,14 +492,20 @@ const App = {
   setupConnectivityListeners() {
     const indicator = document.getElementById('onlineStatus');
 
+    // Status dots and texts in bottom bar
+    const dots  = document.querySelectorAll('#statusDotMain');
+    const texts = document.querySelectorAll('#statusTextMain');
+
     const updateStatus = (online) => {
       if (indicator) {
-        if (online) {
-          indicator.classList.add('hidden');
-        } else {
-          indicator.classList.remove('hidden');
-        }
+        indicator.classList.toggle('hidden', online);
       }
+      // Update all status indicators
+      const dotClass = online
+        ? 'w-2 h-2 rounded-full bg-green-400 animate-pulse'
+        : 'w-2 h-2 rounded-full bg-red-400 animate-pulse';
+      dots.forEach(d => d.className = dotClass);
+      texts.forEach(t => t.textContent = online ? 'Online' : 'Offline');
     };
 
     // Set initial state
