@@ -42,6 +42,37 @@ const BarcodeScanner = {
         if (e.target === modal) this.close();
       });
     }
+
+    // Manual entry lookup
+    const manualBtn = document.getElementById('scannerManualLookup');
+    const manualInput = document.getElementById('scannerManualInput');
+    if (manualBtn && manualInput) {
+      manualBtn.addEventListener('click', () => this._manualLookup());
+      manualInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this._manualLookup();
+      });
+    }
+  },
+
+  async _manualLookup() {
+    const input = document.getElementById('scannerManualInput');
+    if (!input) return;
+    const code = input.value.trim();
+    if (!code) return;
+
+    // Stop camera scanning if active
+    if (this.scanner && this.isScanning) {
+      try {
+        await this.scanner.stop();
+        this.isScanning = false;
+      } catch (e) { /* ignore */ }
+    }
+
+    if (this.context === 'pos') {
+      await this._handlePosScan(code);
+    } else if (this.context === 'inventory') {
+      await this._handleInventoryScan(code);
+    }
   },
 
   async open(context) {
@@ -98,9 +129,8 @@ const BarcodeScanner = {
     const cameraId = this.cameras[this.currentCameraIdx].id;
 
     const config = {
-      fps: 10,
-      qrbox: { width: 250, height: 150 },
-      aspectRatio: 1.0,
+      fps: 15,
+      qrbox: { width: 300, height: 100 },
       formatsToSupport: [
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.EAN_13,
@@ -174,7 +204,7 @@ const BarcodeScanner = {
           <div class="flex items-center justify-between">
             <div>
               <div class="font-semibold text-gray-800 dark:text-gray-200">${esc(product.name)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">SKU: ${esc(product.sku)} &bull; ${inStock ? product.quantity + ' in stock' : '<span class="text-red-500">Out of stock</span>'}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">Stockcode: ${esc(product.barcode || product.sku)} &bull; ${inStock ? product.quantity + ' in stock' : '<span class="text-red-500">Out of stock</span>'}</div>
             </div>
             <div class="text-right">
               <div class="text-xl font-bold text-teal-600">${sym}${price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
@@ -189,7 +219,7 @@ const BarcodeScanner = {
         return;
       }
 
-      // If exact SKU not found, try search
+      // If exact lookup not found, try search
       const searchRes = await fetch(`/api/inventory?q=${encodeURIComponent(sku)}`);
       const results = await searchRes.json();
 
@@ -203,7 +233,7 @@ const BarcodeScanner = {
           <div class="flex items-center justify-between">
             <div>
               <div class="font-semibold text-gray-800 dark:text-gray-200">${esc(product.name)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">SKU: ${esc(product.sku)} &bull; ${inStock ? product.quantity + ' in stock' : '<span class="text-red-500">Out of stock</span>'}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">Stockcode: ${esc(product.barcode || product.sku)} &bull; ${inStock ? product.quantity + ' in stock' : '<span class="text-red-500">Out of stock</span>'}</div>
             </div>
             <div class="text-right">
               <div class="text-xl font-bold text-teal-600">${sym}${price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
@@ -223,7 +253,7 @@ const BarcodeScanner = {
                    onclick="BarcodeScanner._addToCartAndClose('${esc(p.sku)}')">
                 <div>
                   <div class="font-medium text-sm text-gray-800 dark:text-gray-200">${esc(p.name)}</div>
-                  <div class="text-xs text-gray-400">${esc(p.sku)}</div>
+                  <div class="text-xs text-gray-400">${esc(p.barcode || p.sku)}</div>
                 </div>
                 <div class="font-bold text-teal-600">${App.currency(p.selling_price)}</div>
               </div>
@@ -298,7 +328,7 @@ const BarcodeScanner = {
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-semibold text-gray-800 dark:text-gray-200">${esc(product.name)}</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">SKU: ${esc(product.sku)}${product.category ? ' &bull; ' + esc(product.category) : ''}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Stockcode: ${esc(product.barcode || product.sku)}${product.category ? ' &bull; ' + esc(product.category) : ''}</div>
               </div>
               <span class="${isLow ? 'stock-low' : 'stock-ok'}">${isLow ? 'Low' : 'OK'}</span>
             </div>

@@ -180,7 +180,7 @@ const Reports = {
     const head = document.getElementById('rptHead');
     const body = document.getElementById('rptBody');
 
-    head.innerHTML = '<tr><th class="px-4 py-2.5 text-left">SKU</th><th class="px-4 py-2.5 text-left">Name</th><th class="px-4 py-2.5 text-left">Category</th><th class="px-4 py-2.5 text-right">Qty</th><th class="px-4 py-2.5 text-right">Reorder Pt</th><th class="px-4 py-2.5 text-right">Cost</th></tr>';
+    head.innerHTML = '<tr><th class="px-4 py-2.5 text-left">Stockcode</th><th class="px-4 py-2.5 text-left">Name</th><th class="px-4 py-2.5 text-left">Category</th><th class="px-4 py-2.5 text-right">Qty</th><th class="px-4 py-2.5 text-right">Reorder Pt</th><th class="px-4 py-2.5 text-right">Cost</th></tr>';
 
     try {
       const res = await fetch('/api/inventory?low_stock=true');
@@ -194,7 +194,7 @@ const Reports = {
 
     body.innerHTML = this.inventory.map((p, i) => `
       <tr class="${i % 2 ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50">
-        <td class="px-4 py-2 font-mono text-[11px] text-gray-500">${esc(p.sku)}</td>
+        <td class="px-4 py-2 font-mono text-[11px] text-gray-500">${esc(p.barcode || p.sku)}</td>
         <td class="px-4 py-2 font-medium text-gray-700">${esc(p.name)}</td>
         <td class="px-4 py-2 text-gray-600">${esc(p.category)}</td>
         <td class="px-4 py-2 text-right font-bold text-red-600">${p.quantity}</td>

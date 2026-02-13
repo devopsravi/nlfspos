@@ -12,6 +12,7 @@ import hashlib
 import functools
 import atexit
 import time
+import random
 from collections import defaultdict
 from datetime import datetime, date, timedelta
 from pathlib import Path
@@ -353,9 +354,9 @@ def get_inventory():
     params = []
 
     if q:
-        sql += " AND (LOWER(name) LIKE ? OR LOWER(sku) LIKE ? OR LOWER(brand) LIKE ? OR LOWER(description) LIKE ?)"
+        sql += " AND (LOWER(name) LIKE ? OR LOWER(sku) LIKE ? OR LOWER(brand) LIKE ? OR LOWER(description) LIKE ? OR LOWER(barcode) LIKE ?)"
         like = f"%{q}%"
-        params.extend([like, like, like, like])
+        params.extend([like, like, like, like, like])
 
     if category:
         sql += " AND category = ?"
@@ -394,13 +395,24 @@ def add_product():
     if existing:
         return jsonify({"error": "SKU already exists"}), 409
 
+    # Auto-generate unique random 6-digit numeric barcode if not provided
+    if not product.get("barcode", "").strip():
+        used_barcodes = {r[0] for r in db().execute(
+            "SELECT barcode FROM inventory WHERE barcode IS NOT NULL AND barcode != ''"
+        ).fetchall()}
+        while True:
+            candidate = str(random.randint(100000, 999999))
+            if candidate not in used_barcodes:
+                product["barcode"] = candidate
+                break
+
     db().execute(
         """INSERT INTO inventory
-        (sku, name, category, brand, description, cost_price, selling_price,
+        (sku, barcode, name, category, brand, description, cost_price, selling_price,
          quantity, reorder_level, dimensions, weight, color, image_path,
          supplier, date_added, last_updated)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (product["sku"], product.get("name", ""), product.get("category", ""),
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (product["sku"], product.get("barcode", ""), product.get("name", ""), product.get("category", ""),
          product.get("brand", ""), product.get("description", ""),
          float(product.get("cost_price", 0)), float(product.get("selling_price", 0)),
          int(product.get("quantity", 0)), int(product.get("reorder_level", 3)),
@@ -415,7 +427,7 @@ def add_product():
 @app.route("/api/inventory/<sku>", methods=["GET"])
 @login_required
 def get_product(sku):
-    row = db().execute("SELECT * FROM inventory WHERE sku = ?", (sku,)).fetchone()
+    row = db().execute("SELECT * FROM inventory WHERE sku = ? OR barcode = ?", (sku, sku)).fetchone()
     if not row:
         return jsonify({"error": "Product not found"}), 404
     return jsonify(row_to_dict(row))
@@ -448,7 +460,7 @@ def update_product(sku):
         """UPDATE inventory SET
         name=?, category=?, brand=?, description=?, cost_price=?, selling_price=?,
         quantity=?, reorder_level=?, dimensions=?, weight=?, color=?, image_path=?,
-        supplier=?, last_updated=?
+        supplier=?, barcode=?, last_updated=?
         WHERE sku=?""",
         (data.get("name", original["name"]),
          data.get("category", original["category"]),
@@ -461,6 +473,7 @@ def update_product(sku):
          data.get("color", original["color"]),
          data.get("image_path", original["image_path"]),
          data.get("supplier", original["supplier"]),
+         data.get("barcode", original.get("barcode", "")),
          today, sku)
     )
 
@@ -574,14 +587,26 @@ def import_inventory_csv():
         if existing:
             continue
 
+        # Auto-generate random 6-digit barcode if not in CSV
+        barcode = row.get("barcode", "").strip()
+        if not barcode:
+            used_bc = {r[0] for r in conn.execute(
+                "SELECT barcode FROM inventory WHERE barcode IS NOT NULL AND barcode != ''"
+            ).fetchall()}
+            while True:
+                candidate = str(random.randint(100000, 999999))
+                if candidate not in used_bc:
+                    barcode = candidate
+                    break
+
         try:
             conn.execute(
                 """INSERT INTO inventory
-                (sku, name, category, brand, description, cost_price, selling_price,
+                (sku, barcode, name, category, brand, description, cost_price, selling_price,
                  quantity, reorder_level, dimensions, weight, color, image_path,
                  supplier, date_added, last_updated)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (sku, row.get("name", ""), row.get("category", ""),
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (sku, barcode, row.get("name", ""), row.get("category", ""),
                  row.get("brand", ""), row.get("description", ""),
                  float(row.get("cost_price", 0)),
                  float(row.get("selling_price", 0)),

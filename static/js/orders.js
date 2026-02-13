@@ -15,6 +15,12 @@ const Orders = {
   _bound: false,
   _searchDebounce: null,
 
+  // Look up barcode from products list, fallback to sku
+  _bc(sku) {
+    const p = this.products.find(x => x.sku === sku);
+    return (p && p.barcode) ? p.barcode : sku;
+  },
+
   async init() {
     await Promise.all([this.loadOrders(), this.loadSuppliers(), this.loadProducts()]);
     if (!this._bound) { this.bindEvents(); this._bound = true; }
@@ -318,7 +324,7 @@ const Orders = {
       tbody.innerHTML = this.orderItems.map((it, idx) => `
         <tr class="border-b hover:bg-orange-50/20">
           <td class="px-3 py-2 text-xs">${esc(it.product_name)}</td>
-          <td class="px-3 py-2 text-xs text-gray-500">${esc(it.sku)}</td>
+          <td class="px-3 py-2 text-xs text-gray-500">${esc(this._bc(it.sku))}</td>
           <td class="px-3 py-2 text-right">
             <input type="number" min="1" value="${it.quantity}" onchange="Orders.updateItemQty(${idx}, this.value)"
               class="w-14 px-1 py-0.5 border rounded text-xs text-right" />
@@ -382,6 +388,7 @@ const Orders = {
     const q = query.toLowerCase();
     const matches = this.products.filter(p => {
       return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) ||
+        (p.barcode || '').toLowerCase().includes(q) ||
         (p.category || '').toLowerCase().includes(q);
     }).slice(0, 15);
 
@@ -393,7 +400,7 @@ const Orders = {
              onclick="Orders.addProductToOrder('${esc(p.sku)}')">
           <div>
             <span class="font-medium">${esc(p.name)}</span>
-            <span class="text-gray-400 ml-2">${esc(p.sku)}</span>
+            <span class="text-gray-400 ml-2">${esc(p.barcode || p.sku)}</span>
           </div>
           <div class="text-gray-500">₹${Number(p.cost_price || 0).toFixed(2)} | Stock: ${p.quantity}</div>
         </div>`).join('');
@@ -424,7 +431,7 @@ const Orders = {
 
     // Populate read-only fields
     document.getElementById('oidProductName').textContent = product.name;
-    document.getElementById('oidSku').textContent = product.sku;
+    document.getElementById('oidSku').textContent = product.barcode || product.sku;
     document.getElementById('oidQtyOnHand').textContent = product.quantity ?? 0;
     document.getElementById('oidSellingPrice').textContent = '₹' + Number(sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     document.getElementById('oidSkuHidden').value = product.sku;
@@ -649,7 +656,7 @@ const Orders = {
               <input type="checkbox" class="receive-item-check rounded" data-sku="${esc(it.sku)}" checked />
             </td>
             <td class="px-3 py-2 text-xs">${esc(it.product_name)}</td>
-            <td class="px-3 py-2 text-xs text-gray-500">${esc(it.sku)}</td>
+            <td class="px-3 py-2 text-xs text-gray-500">${esc(this._bc(it.sku))}</td>
             <td class="px-3 py-2 text-right text-xs">${it.quantity}</td>
             <td class="px-3 py-2 text-right">
               <input type="number" min="0" max="${remaining}" value="${remaining}"
@@ -748,7 +755,7 @@ const Orders = {
         <tr class="border-b">
           <td class="px-3 py-2 text-center">${i + 1}</td>
           <td class="px-3 py-2">${esc(it.product_name)}</td>
-          <td class="px-3 py-2 text-gray-500">${esc(it.sku)}</td>
+          <td class="px-3 py-2 text-gray-500">${esc(this._bc(it.sku))}</td>
           <td class="px-3 py-2 text-right">${it.quantity}</td>
           <td class="px-3 py-2 text-right">${it.received_qty || 0}</td>
           <td class="px-3 py-2 text-right">₹${Number(it.cost_price || 0).toFixed(2)}</td>
@@ -791,7 +798,7 @@ const Orders = {
         <tr>
           <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${i + 1}</td>
           <td style="padding:6px 10px;border:1px solid #ddd">${esc(it.product_name)}</td>
-          <td style="padding:6px 10px;border:1px solid #ddd">${esc(it.sku)}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd">${esc(this._bc(it.sku))}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">${it.quantity}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">₹${Number(it.cost_price || 0).toFixed(2)}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">₹${(it.quantity * it.cost_price).toFixed(2)}</td>
@@ -832,7 +839,7 @@ const Orders = {
               <tr>
                 <th style="width:40px;text-align:center">#</th>
                 <th>Product</th>
-                <th>SKU</th>
+                <th>Stockcode</th>
                 <th style="text-align:right;width:60px">Qty</th>
                 <th style="text-align:right;width:90px">Cost</th>
                 <th style="text-align:right;width:90px">Total</th>

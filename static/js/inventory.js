@@ -61,9 +61,10 @@ const Inventory = {
       const marginColor = parseFloat(margin) >= 40 ? 'text-green-600' : parseFloat(margin) >= 20 ? 'text-amber-600' : 'text-red-600';
       const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
       const safeSku = esc(p.sku);
+      const displayCode = esc(p.barcode || p.sku);
       return `
         <tr class="${rowBg} hover:bg-blue-50 dark:hover:bg-gray-800 transition text-sm">
-          <td class="px-4 py-2.5 font-mono text-xs text-gray-600">${safeSku}</td>
+          <td class="px-4 py-2.5 font-mono text-xs text-gray-600">${displayCode}</td>
           <td class="inv-name-cell font-medium text-gray-800" title="${esc(p.name)}">${esc(p.name)}</td>
           <td class="px-4 py-2.5 text-gray-600">${esc(p.category)}</td>
           <td class="px-4 py-2.5 text-right font-semibold ${isLow ? 'text-red-600' : 'text-gray-800'}">${p.quantity}</td>
@@ -217,6 +218,16 @@ const Inventory = {
     title.textContent = product ? 'Edit Product' : 'Add Product';
     form.reset();
 
+    // Show/hide Print Label option
+    const printLabelRow = document.getElementById('printLabelRow');
+    const printLabelCheckbox = document.getElementById('printLabelOnSave');
+    if (printLabelRow) {
+      printLabelRow.classList.toggle('hidden', !product);
+    }
+    if (printLabelCheckbox) {
+      printLabelCheckbox.checked = false;
+    }
+
     if (product) {
       Object.keys(product).forEach(key => {
         const input = form.elements[key];
@@ -238,24 +249,37 @@ const Inventory = {
     delete data.markup_pct;
     delete data.margin_pct;
 
+    // Barcode is auto-generated on server; don't send empty value
+    if (!data.barcode || !data.barcode.trim()) {
+      delete data.barcode;
+    }
+
     // Coerce numbers
     ['cost_price', 'selling_price', 'weight'].forEach(f => { data[f] = parseFloat(data[f]) || 0; });
     ['quantity', 'reorder_level'].forEach(f => { data[f] = parseInt(data[f]) || 0; });
 
+    // Check if Print Label is requested
+    const shouldPrintLabel = document.getElementById('printLabelOnSave')?.checked || false;
+
     try {
+      let savedProduct = null;
       if (this.editingSku) {
-        await fetch(`/api/inventory/${this.editingSku}`, {
+        const res = await fetch(`/api/inventory/${this.editingSku}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
+        const result = await res.json();
+        savedProduct = result.product || null;
         App.toast('Product updated');
       } else {
-        await fetch('/api/inventory', {
+        const res = await fetch('/api/inventory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
+        const result = await res.json();
+        savedProduct = result.product || null;
         App.toast('Product added');
       }
 
@@ -263,6 +287,11 @@ const Inventory = {
       await this.loadProducts();
       this.loadCategories();
       this.render();
+
+      // Print label after save if checkbox was checked
+      if (shouldPrintLabel && savedProduct && typeof Labels !== 'undefined') {
+        Labels.printSingleLabel(savedProduct);
+      }
     } catch (err) {
       App.toast('Failed to save product');
     }
@@ -753,7 +782,7 @@ const Inventory = {
       <thead class="bg-gray-100 text-xs uppercase text-gray-600">
         <tr>
           <th class="px-3 py-2 text-left">Item</th>
-          <th class="px-3 py-2 text-left">SKU</th>
+          <th class="px-3 py-2 text-left">Stockcode</th>
           <th class="px-3 py-2 text-right">Qty</th>
           <th class="px-3 py-2 text-right">Unit Price</th>
           <th class="px-3 py-2 text-right">Discount</th>
@@ -862,7 +891,7 @@ const Inventory = {
               <tr style="background:#3a7bd5;color:#fff;">
                 <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:center">#</th>
                 <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:left">Item</th>
-                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:left">SKU</th>
+                <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:left">Stockcode</th>
                 <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:center">Qty</th>
                 <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:right">Price</th>
                 <th style="padding:8px 10px;border:1px solid #3a7bd5;text-align:right">Discount</th>
@@ -897,7 +926,7 @@ const Inventory = {
     document.getElementById('txnOptCSV').onclick = () => {
       const items = sale.items || [];
       if (items.length === 0) { App.toast('No items to export'); return; }
-      const headers = ['Item', 'SKU', 'Qty', 'Unit Price', 'Discount', 'Total'];
+      const headers = ['Item', 'Stockcode', 'Qty', 'Unit Price', 'Discount', 'Total'];
       const rows = items.map(i => [
         `"${i.name}"`, i.sku, i.quantity, i.unit_price,
         i.discount_amount || 0, i.final_total || i.line_total

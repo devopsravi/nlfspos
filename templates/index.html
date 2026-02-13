@@ -181,7 +181,7 @@
             <!-- Top bar: Stock Code + Stock Search -->
             <div class="flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 bg-gray-50 border-b flex-shrink-0">
               <div class="relative flex-1 min-w-[150px] md:flex-none">
-                <input id="posSkuInput" type="text" placeholder="Search product or SKU..." autocomplete="off"
+                <input id="posSkuInput" type="text" placeholder="Search product or stockcode..." autocomplete="off"
                   class="w-full md:w-56 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-400 focus:outline-none" />
                 <div id="posSkuDropdown" class="hidden absolute left-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto"></div>
               </div>
@@ -308,7 +308,7 @@
         <div class="bg-white border-x px-3 md:px-5 py-3 md:py-3.5 flex flex-wrap items-center gap-2 md:gap-0 md:justify-between">
           <div class="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
             <span class="text-sm text-gray-500 font-medium hidden md:inline">Search:</span>
-            <input id="invSearch" type="text" placeholder="Product name, SKU…"
+            <input id="invSearch" type="text" placeholder="Product name, stockcode…"
               class="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-1 min-w-[140px] md:flex-none md:w-52 focus:ring-2 focus:ring-blue-400 focus:outline-none" />
             <button id="invScanBtn" class="bg-teal-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-600 flex items-center gap-1.5 flex-shrink-0" title="Scan Barcode">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -347,7 +347,7 @@
           <table class="text-sm" id="invTable" style="table-layout:fixed;width:100%;min-width:1100px;">
             <thead class="bg-teal-600 text-white text-xs uppercase tracking-wide">
               <tr>
-                <th class="inv-th" style="width:110px;">SKU<div class="resizer"></div></th>
+                <th class="inv-th" style="width:120px;">Stockcode<div class="resizer"></div></th>
                 <th class="inv-th" style="width:220px;">Name<div class="resizer"></div></th>
                 <th class="inv-th" style="width:110px;">Category<div class="resizer"></div></th>
                 <th class="inv-th text-right" style="width:80px;">Qty On Hand<div class="resizer"></div></th>
@@ -376,8 +376,9 @@
             <form id="productForm" class="px-6 py-5 space-y-4">
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-xs text-gray-500 mb-1">SKU</label>
-                  <input name="sku" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Auto-generated if blank" />
+                  <label class="block text-xs text-gray-500 mb-1">Stockcode</label>
+                  <input name="barcode" type="text" readonly class="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600" placeholder="Auto-generated" />
+                  <input name="sku" type="hidden" />
                 </div>
                 <div>
                   <label class="block text-xs text-gray-500 mb-1">Product Name *</label>
@@ -446,6 +447,13 @@
               <input type="hidden" name="image_path" value="" />
               <input type="hidden" name="date_added" value="" />
               <input type="hidden" name="last_updated" value="" />
+              <!-- Print Label option (only visible when editing) -->
+              <div id="printLabelRow" class="hidden border-t pt-3 mt-2">
+                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" id="printLabelOnSave" class="rounded border-gray-300 w-4 h-4" />
+                  Print Label
+                </label>
+              </div>
               <div class="flex justify-end gap-3 pt-2">
                 <button type="button" class="modal-close px-5 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-100">Cancel</button>
                 <button type="submit" class="bg-brand-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-brand-700">Save Product</button>
@@ -1559,7 +1567,7 @@
               <!-- Product search row -->
               <div id="orderItemSearchRow" class="hidden px-4 py-2 border-b bg-orange-50">
                 <div class="flex items-center gap-2">
-                  <input id="orderProductSearch" type="text" placeholder="Search product by name or SKU..."
+                  <input id="orderProductSearch" type="text" placeholder="Search product by name or stockcode..."
                     class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-400 focus:outline-none" />
                   <button type="button" id="btnAddNewProductFromOrder" class="text-xs text-teal-600 hover:text-teal-800 font-medium whitespace-nowrap">+ New Product</button>
                   <button type="button" id="btnCancelOrderItemSearch" class="text-xs text-gray-400 hover:text-gray-600">&times;</button>
@@ -1570,7 +1578,7 @@
                 <thead class="bg-gray-50 text-gray-500 uppercase">
                   <tr>
                     <th class="px-3 py-2 text-left">Product</th>
-                    <th class="px-3 py-2 text-left w-20">SKU</th>
+                    <th class="px-3 py-2 text-left w-20">Stockcode</th>
                     <th class="px-3 py-2 text-right w-16">Qty</th>
                     <th class="px-3 py-2 text-right w-24">Cost</th>
                     <th class="px-3 py-2 text-right w-24">Total</th>
@@ -1615,7 +1623,7 @@
                 <tr>
                   <th class="px-3 py-2 text-center w-10"><input type="checkbox" id="receiveCheckAll" checked class="rounded" /></th>
                   <th class="px-3 py-2 text-left">Product</th>
-                  <th class="px-3 py-2 text-left w-20">SKU</th>
+                  <th class="px-3 py-2 text-left w-20">Stockcode</th>
                   <th class="px-3 py-2 text-right w-16">Ordered</th>
                   <th class="px-3 py-2 text-right w-20">Received</th>
                   <th class="px-3 py-2 text-right w-24">Cost</th>
@@ -1653,7 +1661,7 @@
             <!-- Stock info row -->
             <div class="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
               <div class="text-center">
-                <div class="text-[10px] text-gray-400 uppercase tracking-wide">SKU</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wide">Stockcode</div>
                 <div id="oidSku" class="text-xs font-medium text-gray-700 mt-0.5"></div>
               </div>
               <div class="text-center">
@@ -1764,7 +1772,7 @@
                 <tr>
                   <th class="px-3 py-2 text-left">#</th>
                   <th class="px-3 py-2 text-left">Product</th>
-                  <th class="px-3 py-2 text-left">SKU</th>
+                  <th class="px-3 py-2 text-left">Stockcode</th>
                   <th class="px-3 py-2 text-right">Qty</th>
                   <th class="px-3 py-2 text-right">Received</th>
                   <th class="px-3 py-2 text-right">Cost</th>
@@ -2016,7 +2024,7 @@
           <thead class="bg-gray-100 text-gray-600 uppercase text-[10px]">
             <tr>
               <th class="px-3 py-2 text-left">#</th>
-              <th class="px-3 py-2 text-left">SKU</th>
+              <th class="px-3 py-2 text-left">Stockcode</th>
               <th class="px-3 py-2 text-left">Product Name</th>
               <th class="px-3 py-2 text-left">Category</th>
               <th class="px-3 py-2 text-right">Cost</th>
@@ -2073,9 +2081,14 @@
       <div id="scanResult" class="hidden px-4 py-3 border-t border-gray-200 dark:border-gray-600">
         <div id="scanResultContent" class="scanner-result-card"></div>
       </div>
-      <!-- Footer hint -->
-      <div class="px-4 py-2.5 bg-gray-50 dark:bg-gray-700 text-center">
-        <p class="text-xs text-gray-500 dark:text-gray-400">Point camera at barcode on product label</p>
+      <!-- Manual entry fallback -->
+      <div class="px-4 py-2.5 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+        <div class="flex items-center gap-2">
+          <input id="scannerManualInput" type="text" inputmode="numeric" placeholder="Type stockcode manually..."
+            class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-400" />
+          <button id="scannerManualLookup" class="bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-teal-600 transition">Lookup</button>
+        </div>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 text-center">Or point camera at barcode on product label</p>
       </div>
     </div>
   </div>

@@ -9,6 +9,7 @@ Otherwise, falls back to local SQLite file.
 
 import json
 import os
+import random
 import re
 import sqlite3
 import threading
@@ -303,6 +304,7 @@ CREATE TABLE IF NOT EXISTS customers (
 
 CREATE TABLE IF NOT EXISTS inventory (
     sku TEXT PRIMARY KEY,
+    barcode TEXT DEFAULT '',
     name TEXT NOT NULL,
     category TEXT DEFAULT '',
     brand TEXT DEFAULT '',
@@ -474,6 +476,7 @@ CREATE TABLE IF NOT EXISTS customers (
 
 CREATE TABLE IF NOT EXISTS inventory (
     sku TEXT PRIMARY KEY,
+    barcode TEXT DEFAULT '',
     name TEXT NOT NULL,
     category TEXT DEFAULT '',
     brand TEXT DEFAULT '',
@@ -616,6 +619,7 @@ def init_db():
         cur = conn._conn.cursor()
         cur.execute(PG_SCHEMA)
         conn._conn.commit()
+        _run_pg_migrations(conn)
         engine = "PostgreSQL"
         db_loc = DATABASE_URL.split("@")[-1].split("/")[0] if "@" in DATABASE_URL else "cloud"
     else:
@@ -686,6 +690,53 @@ def _run_sqlite_migrations(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_po_status ON purchase_orders(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_poi_order ON purchase_order_items(order_id)")
 
+    # Migration: add barcode column to inventory and auto-generate numeric barcodes
+    inv_cols = {row[1] for row in conn.execute("PRAGMA table_info(inventory)").fetchall()}
+    if 'barcode' not in inv_cols:
+        conn.execute("ALTER TABLE inventory ADD COLUMN barcode TEXT DEFAULT ''")
+        print("[DB] Migration: added column inventory.barcode")
+
+    # Collect all existing barcodes to avoid duplicates
+    existing_barcodes = {r[0] for r in conn.execute(
+        "SELECT barcode FROM inventory WHERE barcode IS NOT NULL AND barcode != ''"
+    ).fetchall()}
+
+    def _gen_random_barcode(used):
+        """Generate a unique random 6-digit barcode."""
+        while True:
+            code = str(random.randint(100000, 999999))
+            if code not in used:
+                used.add(code)
+                return code
+
+    # Re-randomize barcodes that aren't 6 digits (from old migrations)
+    sequential_rows = conn.execute(
+        "SELECT sku, barcode FROM inventory WHERE barcode IS NOT NULL AND barcode != '' AND LENGTH(barcode) != 6"
+    ).fetchall()
+    if sequential_rows:
+        for row in sequential_rows:
+            old_bc = row[1]
+            new_bc = _gen_random_barcode(existing_barcodes)
+            conn.execute("UPDATE inventory SET barcode = ? WHERE sku = ?", (new_bc, row[0]))
+            existing_barcodes.discard(old_bc)
+        print(f"[DB] Migration: re-randomized {len(sequential_rows)} sequential barcodes")
+
+    # Auto-generate random 6-digit barcodes for products that don't have one
+    empty_barcode_rows = conn.execute(
+        "SELECT sku FROM inventory WHERE barcode IS NULL OR barcode = '' ORDER BY date_added, sku"
+    ).fetchall()
+    if empty_barcode_rows:
+        for row in empty_barcode_rows:
+            new_bc = _gen_random_barcode(existing_barcodes)
+            conn.execute("UPDATE inventory SET barcode = ? WHERE sku = ?", (new_bc, row[0]))
+        print(f"[DB] Migration: auto-generated barcodes for {len(empty_barcode_rows)} products")
+
+    # Create unique index on barcode (ignore if exists)
+    try:
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_barcode ON inventory(barcode)")
+    except Exception:
+        pass
+
     conn.commit()
     print("[DB] Migration: ensured inventory_log, purchases, and purchase_orders tables exist")
 
@@ -732,6 +783,61 @@ def _run_sqlite_migrations(conn):
             print(f"[DB] Migration: seeded {seeded} customers from sales")
 
     conn.commit()
+
+
+def _run_pg_migrations(conn):
+    """PostgreSQL-specific migrations for existing databases."""
+    cur = conn._conn.cursor()
+
+    # Check if barcode column exists in inventory table
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'inventory' AND column_name = 'barcode'
+    """)
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE inventory ADD COLUMN barcode TEXT DEFAULT ''")
+        conn._conn.commit()
+        print("[DB] PG Migration: added column inventory.barcode")
+
+    # Collect existing barcodes to avoid duplicates
+    cur.execute("SELECT barcode FROM inventory WHERE barcode IS NOT NULL AND barcode != ''")
+    existing_barcodes = {r[0] for r in cur.fetchall()}
+
+    def _gen_random_barcode(used):
+        while True:
+            code = str(random.randint(100000, 999999))
+            if code not in used:
+                used.add(code)
+                return code
+
+    # Re-randomize barcodes that aren't 6 digits (from old migrations)
+    cur.execute("SELECT sku, barcode FROM inventory WHERE barcode IS NOT NULL AND barcode != '' AND LENGTH(barcode) != 6")
+    sequential_rows = cur.fetchall()
+    if sequential_rows:
+        for row in sequential_rows:
+            old_bc = row[1]
+            new_bc = _gen_random_barcode(existing_barcodes)
+            cur.execute("UPDATE inventory SET barcode = %s WHERE sku = %s", (new_bc, row[0]))
+            existing_barcodes.discard(old_bc)
+        print(f"[DB] PG Migration: re-randomized {len(sequential_rows)} barcodes")
+
+    # Auto-generate random 6-digit barcodes for products that don't have one
+    cur.execute("SELECT sku FROM inventory WHERE barcode IS NULL OR barcode = '' ORDER BY date_added, sku")
+    empty_rows = cur.fetchall()
+    if empty_rows:
+        for row in empty_rows:
+            new_bc = _gen_random_barcode(existing_barcodes)
+            cur.execute("UPDATE inventory SET barcode = %s WHERE sku = %s", (new_bc, row[0]))
+        print(f"[DB] PG Migration: auto-generated barcodes for {len(empty_rows)} products")
+
+    # Create unique index on barcode (if not exists)
+    try:
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_barcode ON inventory(barcode)")
+    except Exception:
+        conn._conn.rollback()
+
+    conn._conn.commit()
+    print("[DB] PG Migration: barcode column ready")
 
 
 # ---------------------------------------------------------------------------

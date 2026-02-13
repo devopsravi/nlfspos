@@ -85,7 +85,7 @@ const POS = {
 
     container.innerHTML = this.products.map(p => `
       <div class="pos-product-card ${p.quantity <= 0 ? 'out-of-stock' : ''}" data-sku="${esc(p.sku)}">
-        <span class="card-sku">${esc(p.sku)}</span>
+        <span class="card-sku">${esc(p.barcode || p.sku)}</span>
         <span class="card-name">${esc(p.name)}</span>
         <span class="card-stock">${p.quantity > 0 ? p.quantity + ' in stock' : 'Out'}</span>
         <span class="card-price">${App.currency(p.selling_price)}</span>
@@ -113,6 +113,7 @@ const POS = {
     } else {
       this.cart.push({
         sku: product.sku,
+        barcode: product.barcode || '',
         name: product.name,
         price: product.selling_price,
         quantity: 1,
@@ -137,6 +138,7 @@ const POS = {
     const matches = this.products.filter(p =>
       p.name.toLowerCase().includes(query) ||
       p.sku.toLowerCase().includes(query) ||
+      (p.barcode || '').toLowerCase().includes(query) ||
       (p.category || '').toLowerCase().includes(query)
     ).slice(0, 10);
 
@@ -148,7 +150,7 @@ const POS = {
              data-sku="${esc(p.sku)}">
           <div>
             <div class="font-medium text-gray-800">${esc(p.name)}</div>
-            <div class="text-gray-400">${esc(p.sku)}</div>
+            <div class="text-gray-400">${esc(p.barcode || p.sku)}</div>
           </div>
           <div class="text-right">
             <div class="font-bold text-teal-600">₹${Number(p.selling_price || 0).toLocaleString('en-IN')}</div>
@@ -278,7 +280,7 @@ const POS = {
           </td>
           <td class="px-4 py-2.5">
             <div class="font-medium text-gray-800 text-sm leading-tight">${esc(c.name)}</div>
-            <div class="text-xs text-gray-400">${safeSku}</div>
+            <div class="text-xs text-gray-400">${esc(c.barcode || c.sku)}</div>
           </td>
           <td class="px-4 py-2.5 text-right font-semibold text-gray-700">${App.currency(c.price)}</td>
           <td class="px-4 py-2.5 text-right text-gray-500">${App.currency(itemTax)}</td>
@@ -977,7 +979,7 @@ const POS = {
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:13px;">${idx + 1}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
             <div style="font-weight:600;color:#1f2937;font-size:13px;">${esc(c.name)}</div>
-            <div style="font-size:11px;color:#9ca3af;">${esc(c.sku)}</div>
+            <div style="font-size:11px;color:#9ca3af;">${esc(c.barcode || c.sku)}</div>
           </td>
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px;">${c.quantity}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(c.price)}</td>
