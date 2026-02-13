@@ -869,6 +869,35 @@ def _run_pg_migrations(conn):
     except Exception:
         conn._conn.rollback()
 
+    # Migration: normalize currency symbol Rs → ₹
+    cur.execute("SELECT value FROM settings WHERE key='currency_symbol'")
+    curr_row = cur.fetchone()
+    if curr_row and curr_row[0].strip().lower() in ('rs', 'rs.', 'inr'):
+        cur.execute("UPDATE settings SET value='₹' WHERE key='currency_symbol'")
+        print(f"[DB] PG Migration: currency_symbol '{curr_row[0]}' → '₹'")
+
+    # Migration: convert old NLF-XXX-XXX SKUs to 6-digit random numbers
+    cur.execute("SELECT sku FROM inventory WHERE sku LIKE 'NLF-%%'")
+    old_sku_rows = cur.fetchall()
+    if old_sku_rows:
+        cur.execute("SELECT sku FROM inventory WHERE sku IS NOT NULL AND sku != ''")
+        used_skus = {r[0] for r in cur.fetchall()}
+        for row in old_sku_rows:
+            old_sku = row[0]
+            while True:
+                new_sku = str(random.randint(100000, 999999))
+                if new_sku not in used_skus:
+                    break
+            used_skus.add(new_sku)
+            # Update all referencing tables first, then the parent
+            for tbl in ("sale_items", "inventory_log", "purchase_order_items"):
+                try:
+                    cur.execute(f"UPDATE {tbl} SET sku = %s WHERE sku = %s", (new_sku, old_sku))
+                except Exception:
+                    conn._conn.rollback()
+            cur.execute("UPDATE inventory SET sku = %s WHERE sku = %s", (new_sku, old_sku))
+        print(f"[DB] PG Migration: converted {len(old_sku_rows)} old NLF- SKUs to 6-digit numbers")
+
     conn._conn.commit()
     print("[DB] PG Migration: barcode column ready")
 
