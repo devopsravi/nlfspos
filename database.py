@@ -869,11 +869,17 @@ def _run_pg_migrations(conn):
     except Exception:
         conn._conn.rollback()
 
+    # Commit barcode migrations before proceeding
+    conn._conn.commit()
+    print("[DB] PG Migration: barcode column ready")
+
     # Migration: normalize currency symbol Rs → ₹
+    # (committed separately so it's never lost by later errors)
     cur.execute("SELECT value FROM settings WHERE key='currency_symbol'")
     curr_row = cur.fetchone()
     if curr_row and curr_row[0].strip().lower() in ('rs', 'rs.', 'inr'):
         cur.execute("UPDATE settings SET value='₹' WHERE key='currency_symbol'")
+        conn._conn.commit()
         print(f"[DB] PG Migration: currency_symbol '{curr_row[0]}' → '₹'")
 
     # Migration: convert old NLF-XXX-XXX SKUs to 6-digit random numbers
@@ -881,11 +887,14 @@ def _run_pg_migrations(conn):
     old_sku_rows = cur.fetchall()
     if old_sku_rows:
         # Temporarily disable FK triggers so we can update parent + child tables
-        for tbl in ("inventory_log", "sale_items", "purchase_order_items", "inventory"):
+        # Use savepoints so a missing table doesn't abort the transaction
+        child_tables = ("inventory_log", "sale_items", "purchase_order_items")
+        for tbl in child_tables + ("inventory",):
+            cur.execute(f"SAVEPOINT sp_{tbl}")
             try:
                 cur.execute(f"ALTER TABLE {tbl} DISABLE TRIGGER ALL")
             except Exception:
-                conn._conn.rollback()
+                cur.execute(f"ROLLBACK TO SAVEPOINT sp_{tbl}")
 
         cur.execute("SELECT sku FROM inventory WHERE sku IS NOT NULL AND sku != ''")
         used_skus = {r[0] for r in cur.fetchall()}
@@ -897,21 +906,24 @@ def _run_pg_migrations(conn):
                     break
             used_skus.add(new_sku)
             # Update all tables that reference this SKU
-            for tbl in ("sale_items", "inventory_log", "purchase_order_items"):
-                cur.execute(f"UPDATE {tbl} SET sku = %s WHERE sku = %s", (new_sku, old_sku))
+            for tbl in child_tables:
+                cur.execute(f"SAVEPOINT sp_upd_{tbl}")
+                try:
+                    cur.execute(f"UPDATE {tbl} SET sku = %s WHERE sku = %s", (new_sku, old_sku))
+                except Exception:
+                    cur.execute(f"ROLLBACK TO SAVEPOINT sp_upd_{tbl}")
             cur.execute("UPDATE inventory SET sku = %s WHERE sku = %s", (new_sku, old_sku))
 
         # Re-enable FK triggers
-        for tbl in ("inventory_log", "sale_items", "purchase_order_items", "inventory"):
+        for tbl in child_tables + ("inventory",):
+            cur.execute(f"SAVEPOINT sp_en_{tbl}")
             try:
                 cur.execute(f"ALTER TABLE {tbl} ENABLE TRIGGER ALL")
             except Exception:
-                conn._conn.rollback()
+                cur.execute(f"ROLLBACK TO SAVEPOINT sp_en_{tbl}")
 
+        conn._conn.commit()
         print(f"[DB] PG Migration: converted {len(old_sku_rows)} old NLF- SKUs to 6-digit numbers")
-
-    conn._conn.commit()
-    print("[DB] PG Migration: barcode column ready")
 
 
 # ---------------------------------------------------------------------------
