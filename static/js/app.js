@@ -184,9 +184,25 @@ const App = {
     }
   },
 
+  /** Normalize currency symbol — convert Rs/INR to ₹ */
+  _currSym() {
+    const raw = (this.settings.currency_symbol || '₹').trim();
+    // Normalize common rupee notations to the proper symbol
+    if (/^Rs\.?$/i.test(raw) || raw === 'INR') return '₹';
+    return raw;
+  },
+
   currency(amount) {
-    const sym = this.settings.currency_symbol || '₹';
-    return `${sym}${parseFloat(amount || 0).toFixed(2)}`;
+    return `${this._currSym()}${parseFloat(amount || 0).toFixed(2)}`;
+  },
+
+  /** Compact currency for dashboards — e.g. ₹3.5L, ₹50K, ₹800 */
+  currencyShort(amount) {
+    const sym = this._currSym();
+    const v = parseFloat(amount || 0);
+    if (v >= 100000) return `${sym}${(v / 100000).toFixed(1)}L`;
+    if (v >= 1000)   return `${sym}${(v / 1000).toFixed(1)}K`;
+    return `${sym}${v.toFixed(0)}`;
   },
 
   taxRate() {

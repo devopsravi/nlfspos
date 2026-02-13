@@ -281,7 +281,7 @@ const POS = {
   updateCartUI() {
     const tbody = document.getElementById('cartItems');
     const btn = document.getElementById('btnCompleteSale');
-    const sym = App.settings.currency_symbol || '₹';
+    const sym = App._currSym();
     const taxRate = parseFloat(App.settings.tax_rate || 0);
 
     if (this.cart.length === 0) {
@@ -857,7 +857,7 @@ const POS = {
     }
 
     const total = POS.getTotal();
-    const sym = App.settings.currency_symbol || '₹';
+    const sym = App._currSym();
 
     // Build UPI deep link URI
     const txnNote = 'Payment to ' + upiName;
@@ -1023,7 +1023,7 @@ const POS = {
     }
 
     const s = App.settings;
-    const sym = s.currency_symbol || '₹';
+    const sym = App._currSym();
     const taxRate = parseFloat(s.tax_rate || 0);
     const taxName = App.taxName ? App.taxName() : `GST (${taxRate}%)`;
 
@@ -1215,7 +1215,7 @@ const POS = {
 
   showReceipt(sale) {
     const s = App.settings;
-    const sym = s.currency_symbol || '₹';
+    const sym = App._currSym();
 
     // Build item rows with per-item discount info
     const itemRows = sale.items.map(i => {
@@ -1336,7 +1336,7 @@ const POS = {
 
   formatReceiptText(sale) {
     const s = App.settings;
-    const sym = s.currency_symbol || '₹';
+    const sym = App._currSym();
 
     let text = `*${s.store_name || 'Store'}*\n`;
     text += `${s.phone || ''}\n\n`;

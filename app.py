@@ -401,8 +401,15 @@ def add_product():
         return jsonify({"error": "Quantity cannot be negative"}), 400
 
     if not product.get("sku"):
-        cat_prefix = product.get("category", "GEN")[:3].upper()
-        product["sku"] = f"NLF-{cat_prefix}-{uuid.uuid4().hex[:4].upper()}"
+        # Auto-generate unique 6-digit numeric SKU
+        used_skus = {r[0] for r in db().execute(
+            "SELECT sku FROM inventory WHERE sku IS NOT NULL AND sku != ''"
+        ).fetchall()}
+        while True:
+            candidate = str(random.randint(100000, 999999))
+            if candidate not in used_skus:
+                product["sku"] = candidate
+                break
 
     # Check duplicate SKU
     existing = db().execute("SELECT sku FROM inventory WHERE sku = ?", (product["sku"],)).fetchone()
@@ -594,7 +601,15 @@ def import_inventory_csv():
 
         sku = row.get("sku", "").strip()
         if not sku:
-            continue
+            # Auto-generate unique 6-digit numeric SKU
+            used_skus = {r[0] for r in conn.execute(
+                "SELECT sku FROM inventory WHERE sku IS NOT NULL AND sku != ''"
+            ).fetchall()}
+            while True:
+                candidate = str(random.randint(100000, 999999))
+                if candidate not in used_skus:
+                    sku = candidate
+                    break
 
         # Check if SKU already exists
         existing = conn.execute("SELECT sku FROM inventory WHERE sku = ?", (sku,)).fetchone()
@@ -1430,7 +1445,7 @@ def create_supplier():
     now = datetime.now().isoformat()
 
     try:
-        conn.execute(
+        cursor = conn.execute(
             """INSERT INTO suppliers (name, contact_person, phone, email, address, notes, created, last_updated)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (name, data.get("contact_person", ""), data.get("phone", ""),
@@ -1438,7 +1453,8 @@ def create_supplier():
              now, now)
         )
         conn.commit()
-        return jsonify({"success": True, "message": f"Supplier '{name}' created"})
+        new_id = cursor.lastrowid
+        return jsonify({"success": True, "id": new_id, "message": f"Supplier '{name}' created"}), 201
     except Exception as e:
         if "UNIQUE" in str(e):
             return jsonify({"error": f"Supplier '{name}' already exists"}), 400

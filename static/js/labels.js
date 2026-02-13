@@ -93,7 +93,7 @@ const Labels = {
 
   _buildLabelHtml(products, size) {
     const storeName = App.settings.store_name || 'Store';
-    const sym = App.settings.currency_symbol || '₹';
+    const sym = App._currSym();
     return products.map(p => {
       const barcodeValue = p.barcode || p.sku;
       const safeClass = barcodeValue.replace(/[^a-zA-Z0-9]/g, '');

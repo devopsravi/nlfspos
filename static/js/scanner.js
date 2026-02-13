@@ -196,7 +196,7 @@ const BarcodeScanner = {
       const res = await fetch(`/api/inventory/${encodeURIComponent(sku)}`);
       if (res.ok) {
         const product = await res.json();
-        const sym = App.settings.currency_symbol || '₹';
+        const sym = App._currSym();
         const price = parseFloat(product.selling_price || 0);
         const inStock = product.quantity > 0;
 
@@ -225,7 +225,7 @@ const BarcodeScanner = {
 
       if (results.length === 1) {
         const product = results[0];
-        const sym = App.settings.currency_symbol || '₹';
+        const sym = App._currSym();
         const price = parseFloat(product.selling_price || 0);
         const inStock = product.quantity > 0;
 
@@ -317,7 +317,7 @@ const BarcodeScanner = {
       }
 
       if (product) {
-        const sym = App.settings.currency_symbol || '₹';
+        const sym = App._currSym();
         const price = parseFloat(product.selling_price || 0);
         const cost = parseFloat(product.cost_price || 0);
         const margin = price > 0 ? (((price - cost) / price) * 100).toFixed(1) : '0.0';

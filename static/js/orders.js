@@ -346,7 +346,7 @@ const Orders = {
     const count = this.orderItems.reduce((s, i) => s + i.quantity, 0);
     const total = this.orderItems.reduce((s, i) => s + i.quantity * i.cost_price, 0);
     document.getElementById('orderItemCount').textContent = count;
-    document.getElementById('orderItemTotal').textContent = '₹' + total.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    document.getElementById('orderItemTotal').textContent = App._currSym() + total.toLocaleString('en-IN', { minimumFractionDigits: 2 });
   },
 
   updateItemQty(idx, val) {
@@ -433,7 +433,7 @@ const Orders = {
     document.getElementById('oidProductName').textContent = product.name;
     document.getElementById('oidSku').textContent = product.barcode || product.sku;
     document.getElementById('oidQtyOnHand').textContent = product.quantity ?? 0;
-    document.getElementById('oidSellingPrice').textContent = '₹' + Number(sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    document.getElementById('oidSellingPrice').textContent = App._currSym() + Number(sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     document.getElementById('oidSkuHidden').value = product.sku;
 
     // Populate editable fields
@@ -737,7 +737,7 @@ const Orders = {
       document.getElementById('ovStatus').innerHTML = this._statusBadge(order.status);
       document.getElementById('ovOrderDate').textContent = order.order_date || '—';
       document.getElementById('ovExpectedDate').textContent = order.expected_date || '—';
-      document.getElementById('ovTotal').textContent = '₹' + Number(order.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      document.getElementById('ovTotal').textContent = App._currSym() + Number(order.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
       document.getElementById('ovReceivedDate').textContent = order.received_date ? order.received_date.split('T')[0] : '—';
 
       // Notes

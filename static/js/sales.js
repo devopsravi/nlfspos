@@ -13,25 +13,25 @@ const Sales = {
       const res = await fetch('/api/sales/dashboard');
       const d = await res.json();
 
-      // Today's Takings
+      // Today's Takings (use compact format for large numbers)
       document.getElementById('dashTodayCount').textContent = d.today_count;
-      document.getElementById('dashToday').textContent = App.currency(d.today_total);
-      document.getElementById('dashCost').textContent = App.currency(d.total_cost);
-      document.getElementById('dashProfit').textContent = App.currency(d.total_profit);
+      document.getElementById('dashToday').textContent = App.currencyShort(d.today_total);
+      document.getElementById('dashCost').textContent = App.currencyShort(d.total_cost);
+      document.getElementById('dashProfit').textContent = App.currencyShort(d.total_profit);
       const voidsEl = document.getElementById('dashVoids');
       const refundsEl = document.getElementById('dashRefunds');
       if (voidsEl) voidsEl.textContent = d.voids_count || 0;
-      if (refundsEl) refundsEl.textContent = d.voids_total ? App.currency(d.voids_total) : '0';
+      if (refundsEl) refundsEl.textContent = d.voids_total ? App.currencyShort(d.voids_total) : '₹0';
 
-      // Stats
+      // Stats (compact format)
       const marginPct = d.total_revenue > 0
         ? (((d.total_revenue - d.total_cost) / d.total_revenue) * 100).toFixed(1)
         : '0.0';
       document.getElementById('dashMarginPct').textContent = marginPct + '%';
-      document.getElementById('dashMonthSales').textContent = App.currency(d.month_total);
+      document.getElementById('dashMonthSales').textContent = App.currencyShort(d.month_total);
 
       const totalSales = d.month_count || 1;
-      document.getElementById('dashAvgTicket').textContent = App.currency(d.month_total / totalSales);
+      document.getElementById('dashAvgTicket').textContent = App.currencyShort(d.month_total / totalSales);
 
       const dayOfMonth = new Date().getDate() || 1;
       document.getElementById('dashAvgDaily').textContent = (d.month_count / dayOfMonth).toFixed(1);
@@ -169,11 +169,7 @@ const Sales = {
       const max = Math.max(...values, 1);
 
       // Format currency short (e.g. ₹1.2L, ₹50K, ₹800)
-      const shortCur = (v) => {
-        if (v >= 100000) return '₹' + (v / 100000).toFixed(1) + 'L';
-        if (v >= 1000) return '₹' + (v / 1000).toFixed(1) + 'K';
-        return '₹' + Math.round(v);
-      };
+      const shortCur = (v) => App.currencyShort(v);
 
       // Y-axis gridlines
       const steps = 4;

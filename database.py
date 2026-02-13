@@ -902,8 +902,20 @@ def migrate_from_json():
 
     inv_file = json_files["inventory"]
     if inv_file.exists():
+        import random as _rnd
         inventory = _read_json(inv_file)
+        _used_skus = {r[0] for r in conn.execute(
+            "SELECT sku FROM inventory WHERE sku IS NOT NULL AND sku != ''"
+        ).fetchall()}
         for p in inventory:
+            sku = (p.get("sku") or "").strip()
+            if not sku:
+                while True:
+                    candidate = str(_rnd.randint(100000, 999999))
+                    if candidate not in _used_skus:
+                        sku = candidate
+                        break
+            _used_skus.add(sku)
             try:
                 conn.execute(
                     """INSERT OR IGNORE INTO inventory
@@ -911,7 +923,7 @@ def migrate_from_json():
                      quantity, reorder_level, dimensions, weight, color, image_path,
                      supplier, date_added, last_updated)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (p["sku"], p["name"], p.get("category", ""), p.get("brand", ""),
+                    (sku, p["name"], p.get("category", ""), p.get("brand", ""),
                      p.get("description", ""), float(p.get("cost_price", 0)),
                      float(p.get("selling_price", 0)), int(p.get("quantity", 0)),
                      int(p.get("reorder_level", 3)), p.get("dimensions", ""),
@@ -1105,13 +1117,25 @@ def import_all_data(data):
     print(f"  [IMPORT] Settings: {imported['settings']}")
 
     # --- Inventory ---
+    import random as _rnd
+    _used_skus = {r[0] for r in conn.execute(
+        "SELECT sku FROM inventory WHERE sku IS NOT NULL AND sku != ''"
+    ).fetchall()}
     for p in data.get("inventory", []):
+        sku = (p.get("sku") or "").strip()
+        if not sku:
+            while True:
+                candidate = str(_rnd.randint(100000, 999999))
+                if candidate not in _used_skus:
+                    sku = candidate
+                    break
+        _used_skus.add(sku)
         try:
             conn.execute(
                 "INSERT OR IGNORE INTO inventory (sku, name, category, brand, description, cost_price, selling_price, "
                 "quantity, reorder_level, dimensions, weight, color, image_path, supplier, date_added, last_updated) "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (p["sku"], p["name"], p.get("category", ""), p.get("brand", ""),
+                (sku, p["name"], p.get("category", ""), p.get("brand", ""),
                  p.get("description", ""), float(p.get("cost_price", 0)),
                  float(p.get("selling_price", 0)), int(p.get("quantity", 0)),
                  int(p.get("reorder_level", 3)), p.get("dimensions", ""),

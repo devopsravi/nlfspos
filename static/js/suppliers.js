@@ -290,7 +290,7 @@ const Suppliers = {
         return;
       }
 
-      const fmt = v => '₹' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const fmt = v => App._currSym() + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
       tbody.innerHTML = items.map((it, i) => {
         const bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
