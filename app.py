@@ -329,6 +329,11 @@ def get_all_settings():
             settings[r["key"]] = parsed
         except (json.JSONDecodeError, TypeError):
             settings[r["key"]] = val
+
+    # Always normalize currency symbol server-side (Rs/Rs./INR → ₹)
+    cs = str(settings.get("currency_symbol", "₹")).strip()
+    if cs.lower() in ("rs", "rs.", "inr"):
+        settings["currency_symbol"] = "₹"
     return settings
 
 

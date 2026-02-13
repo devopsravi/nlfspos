@@ -877,10 +877,21 @@ def _run_pg_migrations(conn):
     # (committed separately so it's never lost by later errors)
     cur.execute("SELECT value FROM settings WHERE key='currency_symbol'")
     curr_row = cur.fetchone()
-    if curr_row and curr_row[0].strip().lower() in ('rs', 'rs.', 'inr'):
-        cur.execute("UPDATE settings SET value='₹' WHERE key='currency_symbol'")
+    if curr_row:
+        raw_val = curr_row[0]
+        print(f"[DB] PG Migration: currency_symbol current value = '{raw_val}' (repr={repr(raw_val)})")
+        if raw_val.strip() != '₹':
+            # Force to ₹ unless it's already correct
+            cur.execute("UPDATE settings SET value='₹' WHERE key='currency_symbol'")
+            conn._conn.commit()
+            print(f"[DB] PG Migration: currency_symbol '{raw_val}' → '₹'")
+        else:
+            print("[DB] PG Migration: currency_symbol already '₹', no change needed")
+    else:
+        # No currency_symbol row at all — insert ₹
+        cur.execute("INSERT INTO settings (key, value) VALUES ('currency_symbol', '₹')")
         conn._conn.commit()
-        print(f"[DB] PG Migration: currency_symbol '{curr_row[0]}' → '₹'")
+        print("[DB] PG Migration: inserted currency_symbol = '₹'")
 
     # Migration: convert old NLF-XXX-XXX SKUs to 6-digit random numbers
     cur.execute("SELECT sku FROM inventory WHERE sku LIKE 'NLF-%%'")
