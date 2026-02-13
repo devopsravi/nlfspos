@@ -48,30 +48,59 @@ const POS = {
     try {
       const res = await fetch(`/api/inventory?${params}`);
       this.products = await res.json();
+      // Cache products in IndexedDB for offline use (only full catalog, no filter)
+      if (!q && !cat && !catQ && typeof OfflineStore !== 'undefined') {
+        OfflineStore.saveProducts(this.products).catch(() => {});
+      }
     } catch (e) {
-      this.products = [];
+      // Offline fallback — load from IndexedDB cache
+      if (typeof OfflineStore !== 'undefined') {
+        try {
+          const category = cat || catQ || '';
+          if (category) {
+            this.products = await OfflineStore.getProductsByCategory(category);
+          } else {
+            this.products = await OfflineStore.getProducts(q || undefined);
+          }
+          console.log(`[POS] Loaded ${this.products.length} products from offline cache`);
+        } catch (dbErr) {
+          this.products = [];
+        }
+      } else {
+        this.products = [];
+      }
     }
   },
 
   async populateCategories() {
+    let cats = [];
     try {
       const res = await fetch('/api/inventory');
       const all = await res.json();
-      const cats = [...new Set(all.map(p => p.category).filter(Boolean))].sort();
+      cats = [...new Set(all.map(p => p.category).filter(Boolean))].sort();
+      // Cache categories for offline
+      if (typeof OfflineStore !== 'undefined') {
+        OfflineStore.saveCategories(cats).catch(() => {});
+      }
+    } catch (e) {
+      // Offline fallback
+      if (typeof OfflineStore !== 'undefined') {
+        try { cats = await OfflineStore.getCategories(); } catch (_) {}
+      }
+    }
 
-      // Populate both dropdowns
-      ['posCategoryFilter', 'posCatQuick'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const current = el.value;
-        const options = id === 'posCatQuick'
-          ? '<option value="">All Categories</option>'
-          : '<option value="">All</option>';
-        el.innerHTML = options + cats.map(c =>
-          `<option value="${esc(c)}" ${c === current ? 'selected' : ''}>${esc(c)}</option>`
-        ).join('');
-      });
-    } catch (e) { /* ignore */ }
+    // Populate both dropdowns
+    ['posCategoryFilter', 'posCatQuick'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const current = el.value;
+      const options = id === 'posCatQuick'
+        ? '<option value="">All Categories</option>'
+        : '<option value="">All</option>';
+      el.innerHTML = options + cats.map(c =>
+        `<option value="${esc(c)}" ${c === current ? 'selected' : ''}>${esc(c)}</option>`
+      ).join('');
+    });
   },
 
   renderProducts() {
@@ -899,6 +928,12 @@ const POS = {
       customer_email: document.getElementById('custEmail')?.value || '',
     };
 
+    // --- Offline detection: queue sale if no network ---
+    if (!navigator.onLine && typeof OfflineStore !== 'undefined') {
+      await this._queueOfflineSale(sale);
+      return;
+    }
+
     try {
       const res = await fetch('/api/sales', {
         method: 'POST',
@@ -932,7 +967,50 @@ const POS = {
       await this.loadProducts();
       this.renderProducts();
     } catch (e) {
-      App.toast('Sale failed!');
+      // Network error — queue the sale offline
+      if (typeof OfflineStore !== 'undefined') {
+        await this._queueOfflineSale(sale);
+      } else {
+        App.toast('Sale failed!');
+      }
+    }
+  },
+
+  // --- Offline Sale Queuing ---
+
+  async _queueOfflineSale(sale) {
+    try {
+      sale.timestamp = new Date().toISOString();
+      const localId = await OfflineStore.queueSale(sale);
+
+      // Decrement local stock cache so quantities stay accurate
+      for (const item of sale.items) {
+        if (item.sku) {
+          await OfflineStore.decrementStock(item.sku, item.quantity);
+        }
+      }
+
+      App.toast('Sale queued — will sync when online', 3500);
+
+      // Reset cart
+      this.cart = [];
+      this.saveCart();
+      this.updateCartUI();
+      document.getElementById('custName').value = '';
+      document.getElementById('custPhone').value = '';
+      document.getElementById('custEmail').value = '';
+
+      // Reload products from cache (with decremented stock)
+      await this.loadProducts();
+      this.renderProducts();
+
+      // Update pending badge
+      if (typeof App !== 'undefined' && App.updatePendingBadge) {
+        App.updatePendingBadge();
+      }
+    } catch (err) {
+      console.error('[POS] Failed to queue offline sale:', err);
+      App.toast('Failed to save sale offline!', 3000);
     }
   },
 

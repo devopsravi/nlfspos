@@ -290,6 +290,20 @@ def delete_user(user_id):
 
 
 # ---------------------------------------------------------------------------
+# PWA Service Worker (must be served from root scope)
+# ---------------------------------------------------------------------------
+
+@app.route("/sw.js")
+def service_worker():
+    """Serve the service worker from root scope so it can control all pages."""
+    response = send_from_directory(app.static_folder, "sw.js")
+    response.headers["Content-Type"] = "application/javascript"
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+# ---------------------------------------------------------------------------
 # Frontend
 # ---------------------------------------------------------------------------
 
@@ -981,6 +995,116 @@ def create_sale():
     }
 
     return jsonify({"success": True, "sale": sale_response}), 201
+
+
+@app.route("/api/sales/batch", methods=["POST"])
+@login_required
+def batch_create_sales():
+    """Process multiple offline-queued sales in one request.
+    Accepts: { sales: [ {items, subtotal, ...}, ... ] }
+    Returns: { results: [ {localId, status, receipt_number?, error?}, ... ] }
+    """
+    payload = request.get_json()
+    sales_list = payload.get("sales", [])
+    if not sales_list:
+        return jsonify({"error": "No sales provided"}), 400
+
+    conn = db()
+    results = []
+
+    for sale in sales_list:
+        local_id = sale.get("localId", "")
+        try:
+            # ---- STOCK VALIDATION ----
+            stock_errors = []
+            for line in sale.get("items", []):
+                sku = line.get("sku")
+                qty = line.get("quantity", 1)
+                if not sku:
+                    continue
+                row = conn.execute("SELECT name, quantity FROM inventory WHERE sku = ?", (sku,)).fetchone()
+                if not row:
+                    stock_errors.append(f"Product {sku} not found")
+                elif row["quantity"] < qty:
+                    stock_errors.append(f"{row['name']} — only {row['quantity']} in stock, requested {qty}")
+
+            if stock_errors:
+                results.append({"localId": local_id, "status": "error", "error": "; ".join(stock_errors)})
+                continue
+
+            # ---- GENERATE RECEIPT ----
+            receipt_number = generate_receipt_number()
+            timestamp = sale.get("timestamp") or datetime.now().isoformat()
+            sale_date = timestamp[:10]
+
+            # ---- INSERT SALE ----
+            cursor = conn.execute(
+                """INSERT INTO sales
+                (receipt_number, timestamp, date, subtotal, discount_amount,
+                 tax_amount, grand_total, payment_method, cashier,
+                 customer_name, customer_phone, customer_email)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (receipt_number, timestamp, sale_date,
+                 float(sale.get("subtotal", 0)),
+                 float(sale.get("discount_amount", 0)),
+                 float(sale.get("tax_amount", 0)),
+                 float(sale.get("grand_total", 0)),
+                 sale.get("payment_method", ""),
+                 sale.get("cashier", ""),
+                 sale.get("customer_name", ""),
+                 sale.get("customer_phone", ""),
+                 sale.get("customer_email", ""))
+            )
+            sale_id = cursor.lastrowid
+            today = date.today().isoformat()
+
+            for line in sale.get("items", []):
+                sku = line.get("sku")
+                qty = line.get("quantity", 1)
+                conn.execute(
+                    """INSERT INTO sale_items
+                    (sale_id, sku, name, quantity, unit_price, line_total,
+                     discount_type, discount_value, discount_amount, final_total)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                    (sale_id, sku, line.get("name", ""),
+                     qty, float(line.get("unit_price", 0)),
+                     float(line.get("line_total", 0)),
+                     line.get("discount_type", "none"),
+                     float(line.get("discount_value", 0)),
+                     float(line.get("discount_amount", 0)),
+                     float(line.get("final_total", line.get("line_total", 0))))
+                )
+                if sku:
+                    conn.execute(
+                        "UPDATE inventory SET quantity = MAX(0, quantity - ?), last_updated = ? WHERE sku = ?",
+                        (qty, today, sku)
+                    )
+                    conn.execute(
+                        "INSERT INTO inventory_log (sku, action, description, old_value, new_value, qty_change, created) VALUES (?,?,?,?,?,?,?)",
+                        (sku, "Sale", f"Sold {qty} unit(s) — Receipt {receipt_number} (offline sync)",
+                         "", receipt_number, -qty, timestamp)
+                    )
+
+            # Auto-create customer
+            cust_phone = sale.get("customer_phone", "").strip()
+            cust_name = sale.get("customer_name", "").strip()
+            cust_email = sale.get("customer_email", "").strip()
+            if cust_phone:
+                existing_cust = conn.execute("SELECT id FROM customers WHERE phone = ?", (cust_phone,)).fetchone()
+                if not existing_cust:
+                    now_str = datetime.now().isoformat()
+                    conn.execute(
+                        "INSERT INTO customers (phone, name, email, created, last_updated) VALUES (?, ?, ?, ?, ?)",
+                        (cust_phone, cust_name, cust_email, now_str, now_str)
+                    )
+
+            results.append({"localId": local_id, "status": "ok", "receipt_number": receipt_number})
+
+        except Exception as e:
+            results.append({"localId": local_id, "status": "error", "error": str(e)})
+
+    conn.commit()
+    return jsonify({"results": results})
 
 
 @app.route("/api/sales/<receipt_number>", methods=["GET"])

@@ -7,6 +7,13 @@
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg" />
   <link rel="apple-touch-icon" href="/static/img/logo.svg" />
 
+  <!-- PWA Manifest & Meta -->
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#1e293b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NLF POS" />
+
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
@@ -60,9 +67,10 @@
         <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>
         Dashboard
       </a>
-      <a href="#" data-page="pos" data-perm="all" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent">
+      <a href="#" data-page="pos" data-perm="all" class="nav-link flex items-center gap-3 px-5 py-3 text-sm font-medium border-l-[3px] border-transparent relative">
         <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m5-9v9m4-9v9m5-9l2 9"/></svg>
         POS Register
+        <span id="pendingSalesBadge" class="hidden absolute right-3 top-2 bg-amber-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">0</span>
       </a>
       <!-- Items with expandable sub-menu (admin only) -->
       <div data-perm="admin" id="itemsMenuGroup">
@@ -157,6 +165,11 @@
         </div>
         <span class="text-gray-300 hidden md:inline">|</span>
         <span id="headerDate" class="text-sm text-gray-500 hidden md:inline"></span>
+        <!-- Offline status indicator -->
+        <span id="onlineStatus" class="hidden bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 animate-pulse">
+          <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+          Offline
+        </span>
         <button onclick="App.refresh()" class="bg-teal-500 hover:bg-teal-600 text-white text-sm px-3 md:px-4 py-2 rounded-lg flex items-center gap-1.5 transition font-medium">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           <span class="hidden sm:inline">Refresh</span>
@@ -2043,6 +2056,7 @@
   </div>
 
   <!-- JS Modules (v= cache-buster) -->
+  <script src="/static/js/offline-store.js?v=8"></script>
   <script src="/static/js/scanner.js?v=8"></script>
   <script src="/static/js/app.js?v=8"></script>
   <script src="/static/js/inventory.js?v=8"></script>

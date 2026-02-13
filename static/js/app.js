@@ -31,6 +31,11 @@ const App = {
   userRole: 'staff',  // set from server
 
   async init() {
+    // Initialize offline store first (non-blocking)
+    if (typeof OfflineStore !== 'undefined') {
+      OfflineStore.init().catch((e) => console.warn('[App] OfflineStore init failed:', e));
+    }
+
     await this.loadSettings();
     await this.loadUserRole();
     this.applyPermissions();
@@ -40,6 +45,16 @@ const App = {
     this.updateHeader();
     // Initialize barcode scanner
     if (typeof BarcodeScanner !== 'undefined') BarcodeScanner.init();
+
+    // Register Service Worker
+    this.registerServiceWorker();
+
+    // Online/offline listeners
+    this.setupConnectivityListeners();
+
+    // Update pending sales badge
+    this.updatePendingBadge();
+
     // Check URL hash for initial page, or use role-based default
     const hashPage = this.getPageFromHash();
     if (hashPage) {
@@ -104,6 +119,8 @@ const App = {
         const user = await res.json();
         this.userRole = user.role || 'staff';
         this.isAuthenticated = true;
+        // Cache role for offline use
+        try { localStorage.setItem('nlf_user_role', this.userRole); } catch (_) {}
       } else {
         // Not logged in — redirect to login page
         this.isAuthenticated = false;
@@ -111,7 +128,16 @@ const App = {
         return;
       }
     } catch (e) {
-      // Network error — redirect to login
+      // Network error — if offline, try cached role (don't redirect to login)
+      if (!navigator.onLine) {
+        const cachedRole = localStorage.getItem('nlf_user_role');
+        if (cachedRole) {
+          this.userRole = cachedRole;
+          this.isAuthenticated = true;
+          console.log('[App] Offline — using cached role:', cachedRole);
+          return;
+        }
+      }
       this.isAuthenticated = false;
       window.location.href = '/login';
       return;
@@ -141,7 +167,18 @@ const App = {
     try {
       const res = await fetch('/api/settings');
       this.settings = await res.json();
+      // Cache settings for offline
+      try { localStorage.setItem('nlf_settings_cache', JSON.stringify(this.settings)); } catch (_) {}
     } catch (e) {
+      // Offline — try cached settings
+      try {
+        const cached = localStorage.getItem('nlf_settings_cache');
+        if (cached) {
+          this.settings = JSON.parse(cached);
+          console.log('[App] Using cached settings (offline)');
+          return;
+        }
+      } catch (_) {}
       console.error('Failed to load settings', e);
       this.settings = {};
     }
@@ -410,6 +447,97 @@ const App = {
       ok.addEventListener('click', onOk);
       cancel.addEventListener('click', onCancel);
     });
+  },
+
+  // --- PWA: Service Worker Registration ---
+  registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then((reg) => {
+          console.log('[App] Service Worker registered, scope:', reg.scope);
+
+          // Listen for new SW version
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                  this.toast('App updated — refresh for latest version', 4000);
+                }
+              });
+            }
+          });
+        })
+        .catch((err) => console.warn('[App] SW registration failed:', err));
+    }
+  },
+
+  // --- PWA: Online/Offline Connectivity ---
+  setupConnectivityListeners() {
+    const indicator = document.getElementById('onlineStatus');
+
+    const updateStatus = (online) => {
+      if (indicator) {
+        if (online) {
+          indicator.classList.add('hidden');
+        } else {
+          indicator.classList.remove('hidden');
+        }
+      }
+    };
+
+    // Set initial state
+    updateStatus(navigator.onLine);
+
+    window.addEventListener('online', async () => {
+      console.log('[App] Back online — syncing...');
+      updateStatus(true);
+      this.toast('Back online — syncing sales...', 2500);
+
+      // Auto-sync pending sales
+      if (typeof OfflineStore !== 'undefined') {
+        try {
+          const result = await OfflineStore.syncPendingSales();
+          if (result.synced > 0) {
+            this.toast(`${result.synced} offline sale(s) synced successfully`, 3000);
+          }
+          if (result.failed > 0) {
+            this.toast(`${result.failed} sale(s) failed to sync — will retry`, 3500);
+          }
+        } catch (e) {
+          console.error('[App] Sync error:', e);
+        }
+        this.updatePendingBadge();
+      }
+    });
+
+    window.addEventListener('offline', () => {
+      console.log('[App] Gone offline');
+      updateStatus(false);
+      this.toast('You are offline — sales will be queued', 3000);
+    });
+  },
+
+  // --- PWA: Pending Sales Badge ---
+  async updatePendingBadge() {
+    const badge = document.getElementById('pendingSalesBadge');
+    if (!badge) return;
+
+    if (typeof OfflineStore !== 'undefined') {
+      try {
+        const count = await OfflineStore.getPendingCount();
+        if (count > 0) {
+          badge.textContent = count;
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      } catch (e) {
+        badge.classList.add('hidden');
+      }
+    } else {
+      badge.classList.add('hidden');
+    }
   },
 };
 
