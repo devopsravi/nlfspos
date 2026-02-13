@@ -880,6 +880,13 @@ def _run_pg_migrations(conn):
     cur.execute("SELECT sku FROM inventory WHERE sku LIKE 'NLF-%%'")
     old_sku_rows = cur.fetchall()
     if old_sku_rows:
+        # Temporarily disable FK triggers so we can update parent + child tables
+        for tbl in ("inventory_log", "sale_items", "purchase_order_items", "inventory"):
+            try:
+                cur.execute(f"ALTER TABLE {tbl} DISABLE TRIGGER ALL")
+            except Exception:
+                conn._conn.rollback()
+
         cur.execute("SELECT sku FROM inventory WHERE sku IS NOT NULL AND sku != ''")
         used_skus = {r[0] for r in cur.fetchall()}
         for row in old_sku_rows:
@@ -889,13 +896,18 @@ def _run_pg_migrations(conn):
                 if new_sku not in used_skus:
                     break
             used_skus.add(new_sku)
-            # Update all referencing tables first, then the parent
+            # Update all tables that reference this SKU
             for tbl in ("sale_items", "inventory_log", "purchase_order_items"):
-                try:
-                    cur.execute(f"UPDATE {tbl} SET sku = %s WHERE sku = %s", (new_sku, old_sku))
-                except Exception:
-                    conn._conn.rollback()
+                cur.execute(f"UPDATE {tbl} SET sku = %s WHERE sku = %s", (new_sku, old_sku))
             cur.execute("UPDATE inventory SET sku = %s WHERE sku = %s", (new_sku, old_sku))
+
+        # Re-enable FK triggers
+        for tbl in ("inventory_log", "sale_items", "purchase_order_items", "inventory"):
+            try:
+                cur.execute(f"ALTER TABLE {tbl} ENABLE TRIGGER ALL")
+            except Exception:
+                conn._conn.rollback()
+
         print(f"[DB] PG Migration: converted {len(old_sku_rows)} old NLF- SKUs to 6-digit numbers")
 
     conn._conn.commit()
