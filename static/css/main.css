@@ -196,6 +196,75 @@ body.col-resizing {
   background: #4b5563;
 }
 
+/* --- Mobile sidebar overlay --- */
+body.sidebar-open {
+  overflow: hidden;
+}
+
+/* --- Barcode Scanner --- */
+#scannerModal video {
+  width: 100%;
+  border-radius: 0;
+}
+#barcodeScannerRegion {
+  position: relative;
+  overflow: hidden;
+}
+.scanner-result-card {
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Mobile responsive helpers --- */
+@media (max-width: 767px) {
+  /* POS page: stack panels vertically */
+  #page-pos .flex.gap-3.h-full {
+    flex-direction: column;
+    height: auto !important;
+  }
+  #page-pos {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+  /* POS right panel: full width on mobile */
+  #page-pos .w-\[320px\] {
+    width: 100% !important;
+  }
+  /* POS search bar: wrap on mobile */
+  #page-pos .flex.items-center.gap-3.px-4.py-3 {
+    flex-wrap: wrap;
+  }
+  #page-pos #posSkuInput {
+    width: 100% !important;
+  }
+  #page-pos #posSearch {
+    width: 100% !important;
+  }
+  /* POS bottom: customer + totals stack */
+  #page-pos .flex.items-start.gap-4.px-4.py-3 {
+    flex-direction: column;
+  }
+  #page-pos .flex.items-start.gap-4.px-4.py-3 .flex.items-center.gap-2 {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  #page-pos .flex.items-start.gap-4.px-4.py-3 .min-w-\[250px\] {
+    width: 100%;
+    min-width: 0;
+  }
+  /* Inventory controls: wrap */
+  #page-inventory .flex.items-center.justify-between {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  #page-inventory #invSearch {
+    width: 100% !important;
+  }
+}
+
 /* --- Print: hide everything except print areas --- */
 @media print {
   body > *:not(#receiptPrintArea):not(#labelPreview):not(#quotePrintArea) {

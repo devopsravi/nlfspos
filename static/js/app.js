@@ -38,6 +38,8 @@ const App = {
     this.setupDarkMode();
     this.setupModals();
     this.updateHeader();
+    // Initialize barcode scanner
+    if (typeof BarcodeScanner !== 'undefined') BarcodeScanner.init();
     // Check URL hash for initial page, or use role-based default
     const hashPage = this.getPageFromHash();
     if (hashPage) {
@@ -222,6 +224,9 @@ const App = {
   },
 
   navigate(page, sub, skipHash) {
+    // Close mobile sidebar on navigation
+    if (window.innerWidth < 768) this.closeSidebar();
+
     // Auth guard: if not authenticated, redirect to login
     if (!this.isAuthenticated) {
       window.location.href = '/login';
@@ -275,10 +280,14 @@ const App = {
       pageEl.style.display = 'block';
     }
 
-    // POS page: disable outer scroll so cart stays in viewport
+    // POS page: disable outer scroll on desktop so cart stays in viewport; allow scroll on mobile (stacked layout)
     const container = document.getElementById('pageContainer');
     if (container) {
-      container.style.overflow = (page === 'pos') ? 'hidden' : 'auto';
+      if (page === 'pos') {
+        container.style.overflow = window.innerWidth >= 768 ? 'hidden' : 'auto';
+      } else {
+        container.style.overflow = 'auto';
+      }
     }
 
     // Update title + breadcrumb subtitle
@@ -301,6 +310,30 @@ const App = {
       case 'suppliers': if (typeof Suppliers !== 'undefined') Suppliers.init(); break;
       case 'customers': if (typeof Customers !== 'undefined') Customers.init(); break;
     }
+  },
+
+  // --- Mobile Sidebar ---
+  toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    const isOpen = sidebar.classList.contains('translate-x-0');
+    if (isOpen) {
+      this.closeSidebar();
+    } else {
+      sidebar.classList.remove('-translate-x-full');
+      sidebar.classList.add('translate-x-0');
+      backdrop.classList.remove('hidden');
+      document.body.classList.add('sidebar-open');
+    }
+  },
+
+  closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    sidebar.classList.add('-translate-x-full');
+    sidebar.classList.remove('translate-x-0');
+    backdrop.classList.add('hidden');
+    document.body.classList.remove('sidebar-open');
   },
 
   // --- Dark Mode ---
