@@ -207,6 +207,10 @@
   </div>
 
   <script>
+    // Detect if running as installed PWA (standalone) vs browser tab
+    const _isPWA = window.matchMedia('(display-mode: standalone)').matches
+                   || window.navigator.standalone === true;
+
     const form = document.getElementById('loginForm');
     const errorDiv = document.getElementById('loginError');
     const errorMsg = document.getElementById('loginErrorMsg');
@@ -245,7 +249,7 @@
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ username, password, is_pwa: _isPWA }),
         });
 
         const data = await res.json();

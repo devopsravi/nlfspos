@@ -3,30 +3,30 @@
    Cache app shell + network-first for API
    ============================================= */
 
-const SHELL_CACHE = 'nlf-pos-shell-v5';
-const API_CACHE   = 'nlf-pos-api-v5';
+const SHELL_CACHE = 'nlf-pos-shell-v6';
+const API_CACHE   = 'nlf-pos-api-v6';
 const ALL_CACHES  = [SHELL_CACHE, API_CACHE];
 
 // --- App shell files to pre-cache on install ---
 const SHELL_FILES = [
   '/',
-  '/static/css/main.css?v=11',
-  '/static/css/pos.css?v=11',
-  '/static/css/labels.css?v=11',
-  '/static/css/receipt.css?v=11',
-  '/static/js/app.js?v=11',
-  '/static/js/pos.js?v=11',
-  '/static/js/inventory.js?v=11',
-  '/static/js/labels.js?v=11',
-  '/static/js/sales.js?v=11',
-  '/static/js/reports.js?v=11',
-  '/static/js/transactions.js?v=11',
-  '/static/js/settings.js?v=11',
-  '/static/js/suppliers.js?v=11',
-  '/static/js/customers.js?v=11',
-  '/static/js/orders.js?v=11',
-  '/static/js/scanner.js?v=11',
-  '/static/js/offline-store.js?v=11',
+  '/static/css/main.css?v=12',
+  '/static/css/pos.css?v=12',
+  '/static/css/labels.css?v=12',
+  '/static/css/receipt.css?v=12',
+  '/static/js/app.js?v=12',
+  '/static/js/pos.js?v=12',
+  '/static/js/inventory.js?v=12',
+  '/static/js/labels.js?v=12',
+  '/static/js/sales.js?v=12',
+  '/static/js/reports.js?v=12',
+  '/static/js/transactions.js?v=12',
+  '/static/js/settings.js?v=12',
+  '/static/js/suppliers.js?v=12',
+  '/static/js/customers.js?v=12',
+  '/static/js/orders.js?v=12',
+  '/static/js/scanner.js?v=12',
+  '/static/js/offline-store.js?v=12',
   '/static/img/logo.svg',
   '/static/img/favicon.svg',
   '/static/img/icon-192.png',

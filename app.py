@@ -51,8 +51,8 @@ if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RENDER") or os.envir
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# Session lifetime — 8 hours (so store staff stays logged in during a shift)
-app.config["PERMANENT_SESSION_LIFETIME"] = 8 * 60 * 60
+# Session lifetime — 9 hours max (PWA gets 9h, browser gets 30min via custom expiry)
+app.config["PERMANENT_SESSION_LIFETIME"] = 9 * 60 * 60
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -86,10 +86,19 @@ def generate_receipt_number():
 # Auth helpers
 # ---------------------------------------------------------------------------
 
+def _session_expired():
+    """Check if the custom per-session expiry has passed."""
+    expires_at = session.get("expires_at")
+    if expires_at and time.time() > expires_at:
+        session.clear()
+        return True
+    return False
+
+
 def login_required(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        if "user" not in session:
+        if "user" not in session or _session_expired():
             if request.path.startswith("/api/"):
                 return jsonify({"error": "Unauthorized"}), 401
             return redirect(url_for("login_page"))
@@ -101,7 +110,7 @@ def admin_required(f):
     """Only allow admin role users."""
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        if "user" not in session:
+        if "user" not in session or _session_expired():
             return jsonify({"error": "Unauthorized"}), 401
         if session["user"].get("role") != "admin":
             return jsonify({"error": "Admin access required"}), 403
@@ -161,13 +170,20 @@ def api_login():
     # Clear rate-limit on success
     _login_attempts.pop(ip, None)
 
-    session.permanent = True  # Use PERMANENT_SESSION_LIFETIME (8 hours)
+    session.permanent = True
     session["user"] = {
         "id": user["id"],
         "name": user["name"],
         "username": user["username"],
         "role": user["role"],
     }
+
+    # Differential session timeout: PWA (installed app) = 9h, browser = 30min
+    is_pwa = bool(data.get("is_pwa", False))
+    timeout = 9 * 60 * 60 if is_pwa else 30 * 60
+    session["is_pwa"] = is_pwa
+    session["expires_at"] = time.time() + timeout
+
     return jsonify({"success": True, "user": session["user"]})
 
 
