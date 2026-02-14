@@ -2,6 +2,18 @@
    App.js — Core router, state, helpers
    ======================================== */
 
+// --- Early PWA install-prompt capture ---
+// The beforeinstallprompt event can fire before App.init() finishes its async
+// work, so we capture it immediately at script-parse time.
+window.__earlyInstallPrompt = null;
+if (window.matchMedia('(display-mode: browser)').matches && navigator.standalone !== true) {
+  window.addEventListener('beforeinstallprompt', function _early(e) {
+    e.preventDefault();
+    window.__earlyInstallPrompt = e;
+    // Remove this early listener once App.setupInstallPrompt takes over
+  });
+}
+
 // --- XSS Protection: HTML entity escaper ---
 function esc(str) {
   if (str === null || str === undefined) return '';
@@ -48,6 +60,9 @@ const App = {
 
     // Register Service Worker
     this.registerServiceWorker();
+
+    // PWA Install prompt
+    this.setupInstallPrompt();
 
     // Online/offline listeners
     this.setupConnectivityListeners();
@@ -462,6 +477,55 @@ const App = {
       const onCancel = () => cleanup(false);
       ok.addEventListener('click', onOk);
       cancel.addEventListener('click', onCancel);
+    });
+  },
+
+  // --- PWA: Install App (A2HS) ---
+  _deferredInstallPrompt: null,
+
+  /** Called from the header Install App button */
+  async installApp() {
+    if (!this._deferredInstallPrompt) return;
+    this._deferredInstallPrompt.prompt();
+    const { outcome } = await this._deferredInstallPrompt.userChoice;
+    console.log('[App] Install prompt outcome:', outcome);
+    this._deferredInstallPrompt = null;
+    // Hide the button regardless of outcome (prompt can only be used once)
+    const btn = document.getElementById('btnInstallApp');
+    if (btn) btn.classList.add('hidden');
+  },
+
+  /** Listen for the browser's beforeinstallprompt event */
+  setupInstallPrompt() {
+    // If already running as installed PWA (not a browser tab), skip
+    if (!window.matchMedia('(display-mode: browser)').matches || navigator.standalone === true) {
+      return;
+    }
+
+    // Check if the early capture (top of file) already caught the event
+    if (window.__earlyInstallPrompt) {
+      this._deferredInstallPrompt = window.__earlyInstallPrompt;
+      window.__earlyInstallPrompt = null;
+      const btn = document.getElementById('btnInstallApp');
+      if (btn) btn.classList.remove('hidden');
+      console.log('[App] Install prompt recovered from early capture — button shown');
+    }
+
+    // Also listen for future events (e.g. if user dismisses and browser re-fires)
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); // Prevent the mini-infobar
+      this._deferredInstallPrompt = e;
+      const btn = document.getElementById('btnInstallApp');
+      if (btn) btn.classList.remove('hidden');
+      console.log('[App] Install prompt captured — Install button shown');
+    });
+
+    // Hide button if user installs via browser UI or any other way
+    window.addEventListener('appinstalled', () => {
+      console.log('[App] App installed');
+      this._deferredInstallPrompt = null;
+      const btn = document.getElementById('btnInstallApp');
+      if (btn) btn.classList.add('hidden');
     });
   },
 

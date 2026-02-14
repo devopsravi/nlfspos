@@ -43,10 +43,10 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="/static/css/main.css?v=12" />
-  <link rel="stylesheet" href="/static/css/pos.css?v=12" />
-  <link rel="stylesheet" href="/static/css/labels.css?v=12" />
-  <link rel="stylesheet" href="/static/css/receipt.css?v=12" />
+  <link rel="stylesheet" href="/static/css/main.css?v=13" />
+  <link rel="stylesheet" href="/static/css/pos.css?v=13" />
+  <link rel="stylesheet" href="/static/css/labels.css?v=13" />
+  <link rel="stylesheet" href="/static/css/receipt.css?v=13" />
 </head>
 <body class="bg-[#ecf0f1] text-gray-800 min-h-screen flex">
 
@@ -173,6 +173,13 @@
         <button onclick="App.refresh()" class="bg-teal-500 hover:bg-teal-600 text-white text-sm px-3 md:px-4 py-2 rounded-lg flex items-center gap-1.5 transition font-medium">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           <span class="hidden sm:inline">Refresh</span>
+        </button>
+        <button id="btnInstallApp" class="hidden bg-teal-500 hover:bg-teal-600 text-white text-sm px-3 md:px-4 py-2 rounded-lg flex items-center gap-1.5 transition font-medium" title="Install as app">
+          <!-- Install icon (download arrow) — shown when app is NOT installed -->
+          <svg id="installIconDownload" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 4v12m0 0l-4-4m4 4l4-4"/></svg>
+          <!-- Open icon (external launch) — shown when app IS installed -->
+          <svg id="installIconOpen" class="w-4 h-4 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+          <span id="installBtnLabel" class="hidden sm:inline">Install App</span>
         </button>
         <button onclick="App.logout()" class="bg-red-50 hover:bg-red-100 text-red-600 text-sm px-3 md:px-4 py-2 rounded-lg flex items-center gap-1.5 transition font-medium" title="Sign out">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -2069,19 +2076,19 @@
   </div>
 
   <!-- JS Modules (v= cache-buster) -->
-  <script src="/static/js/offline-store.js?v=12"></script>
-  <script src="/static/js/scanner.js?v=12"></script>
-  <script src="/static/js/app.js?v=12"></script>
-  <script src="/static/js/inventory.js?v=12"></script>
-  <script src="/static/js/pos.js?v=12"></script>
-  <script src="/static/js/labels.js?v=12"></script>
-  <script src="/static/js/sales.js?v=12"></script>
-  <script src="/static/js/reports.js?v=12"></script>
-  <script src="/static/js/transactions.js?v=12"></script>
-  <script src="/static/js/settings.js?v=12"></script>
-  <script src="/static/js/suppliers.js?v=12"></script>
-  <script src="/static/js/customers.js?v=12"></script>
-  <script src="/static/js/orders.js?v=12"></script>
+  <script src="/static/js/offline-store.js?v=13"></script>
+  <script src="/static/js/scanner.js?v=13"></script>
+  <script src="/static/js/app.js?v=13"></script>
+  <script src="/static/js/inventory.js?v=13"></script>
+  <script src="/static/js/pos.js?v=13"></script>
+  <script src="/static/js/labels.js?v=13"></script>
+  <script src="/static/js/sales.js?v=13"></script>
+  <script src="/static/js/reports.js?v=13"></script>
+  <script src="/static/js/transactions.js?v=13"></script>
+  <script src="/static/js/settings.js?v=13"></script>
+  <script src="/static/js/suppliers.js?v=13"></script>
+  <script src="/static/js/customers.js?v=13"></script>
+  <script src="/static/js/orders.js?v=13"></script>
 
   <!-- Barcode Scanner Modal (shared by POS & Inventory) -->
   <div id="scannerModal" class="hidden fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
@@ -2151,6 +2158,134 @@
         e.preventDefault();
       });
     });
+  })();
+  </script>
+
+  <!-- PWA Install / Open App — hidden by default, shown only in browser tabs -->
+  <script>
+  (function() {
+    var btn       = document.getElementById('btnInstallApp');
+    var label     = document.getElementById('installBtnLabel');
+    var iconDL    = document.getElementById('installIconDownload');
+    var iconOpen  = document.getElementById('installIconOpen');
+    if (!btn) return;
+
+    // Robust check: are we running inside an installed PWA (not a browser tab)?
+    // Check ALL non-browser display modes — standalone, minimal-ui, fullscreen, WCO
+    var inBrowser = window.matchMedia('(display-mode: browser)').matches;
+    // iOS Safari standalone check
+    if (navigator.standalone === true) inBrowser = false;
+
+    // If NOT in a normal browser tab → we're inside the installed PWA.
+    // Listen for "focus-pwa" messages from browser tabs and focus this window.
+    if (!inBrowser) {
+      var ch = new BroadcastChannel('nlf-pwa-focus');
+      ch.onmessage = function(e) {
+        if (e.data === 'focus-pwa') {
+          window.focus();
+          ch.postMessage('pwa-focused');
+        }
+      };
+      return;
+    }
+
+    // We ARE in a browser tab — show the button
+    btn.classList.remove('hidden');
+
+    var deferredPrompt = null;
+    var promptReceived = false;
+
+    // --- Helper: switch button to "Open in App" mode ---
+    function setOpenMode() {
+      label.textContent = 'Open in App';
+      btn.title = 'Open in installed app';
+      iconDL.classList.add('hidden');
+      iconOpen.classList.remove('hidden');
+      localStorage.setItem('nlf_pwa_installed', '1');
+    }
+
+    // --- Helper: switch button to "Install App" mode ---
+    function setInstallMode() {
+      label.textContent = 'Install App';
+      btn.title = 'Install as app';
+      iconDL.classList.remove('hidden');
+      iconOpen.classList.add('hidden');
+      localStorage.removeItem('nlf_pwa_installed');
+    }
+
+    // Pick up early-captured install prompt from app.js (means NOT installed)
+    if (window.__earlyInstallPrompt) {
+      deferredPrompt = window.__earlyInstallPrompt;
+      window.__earlyInstallPrompt = null;
+      promptReceived = true;
+      setInstallMode();
+    }
+
+    // Listen for install prompt (means app is NOT installed)
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      promptReceived = true;
+      setInstallMode();
+    });
+
+    // After successful install, switch to "Open in App"
+    window.addEventListener('appinstalled', function() {
+      deferredPrompt = null;
+      setOpenMode();
+    });
+
+    // Timeout-based detection: if beforeinstallprompt hasn't fired after 3s,
+    // the app is already installed (Chrome only fires it for un-installed PWAs).
+    setTimeout(function() {
+      if (!promptReceived) {
+        setOpenMode();
+      }
+    }, 3000);
+
+    // Button click handler
+    btn.addEventListener('click', function() {
+      // Mode 1: we have an install prompt → trigger native install dialog
+      var prompt = deferredPrompt || (typeof App !== 'undefined' && App._deferredInstallPrompt);
+      if (prompt) {
+        prompt.prompt();
+        prompt.userChoice.then(function(choice) {
+          deferredPrompt = null;
+          if (typeof App !== 'undefined') App._deferredInstallPrompt = null;
+          if (choice.outcome === 'accepted') {
+            setOpenMode();
+          }
+        });
+        return;
+      }
+
+      // Mode 2: app is already installed → try to focus existing PWA window,
+      // or guide the user to their desktop/taskbar shortcut.
+      var ch = new BroadcastChannel('nlf-pwa-focus');
+      var answered = false;
+
+      ch.onmessage = function(e) {
+        if (e.data === 'pwa-focused') answered = true;
+      };
+      ch.postMessage('focus-pwa');
+
+      // If PWA responds within 800ms it's open and focused; otherwise guide user
+      setTimeout(function() {
+        ch.close();
+        if (!answered) {
+          if (typeof App !== 'undefined' && App.toast) {
+            App.toast('Open NLF POS from your desktop or taskbar shortcut', 4000);
+          } else {
+            alert('Open NLF POS from your desktop or taskbar shortcut');
+          }
+        }
+      }, 800);
+    });
+
+    // Sync with App object if available
+    if (typeof App !== 'undefined') {
+      App._deferredInstallPrompt = deferredPrompt;
+    }
   })();
   </script>
 
