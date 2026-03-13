@@ -110,7 +110,7 @@ const App = {
     const parts = hash.split('/');
     const page = parts[0];
     const sub = parts[1] || null;
-    const validPages = ['pos', 'sales', 'inventory', 'labels', 'reports', 'transactions', 'settings', 'orders', 'suppliers', 'customers'];
+    const validPages = ['pos', 'sales', 'inventory', 'labels', 'reports', 'transactions', 'settings', 'orders', 'suppliers', 'customers', 'categories'];
     if (validPages.includes(page)) return { page, sub };
     return null;
   },
@@ -229,7 +229,7 @@ const App = {
   },
 
   // Pages that belong to the Items menu group
-  _itemsPages: ['inventory', 'orders', 'suppliers', 'customers'],
+  _itemsPages: ['inventory', 'orders', 'suppliers', 'customers', 'categories'],
 
   // --- Navigation ---
   setupNavigation() {
@@ -302,7 +302,7 @@ const App = {
     }
 
     // Permission guard: non-admin can't access restricted pages
-    const adminOnly = ['sales','inventory','labels','settings','reports','transactions','orders','suppliers','customers'];
+    const adminOnly = ['sales','inventory','labels','settings','reports','transactions','orders','suppliers','customers','categories'];
     if (adminOnly.includes(page) && this.userRole === 'staff') {
       page = 'pos'; // redirect staff to POS
     }
@@ -359,8 +359,8 @@ const App = {
     }
 
     // Update title + breadcrumb subtitle
-    const titles = { pos: 'POS Register', inventory: 'Inventory', labels: 'Labels', sales: 'Dashboard', reports: 'Reports', transactions: 'Sales', settings: 'Settings', orders: 'Purchase Orders', suppliers: 'Suppliers', customers: 'Customers' };
-    const subtitles = { pos: 'checkout & billing', inventory: 'manage products', labels: 'barcode labels', sales: 'overview & stats', reports: 'sales & analytics', transactions: 'view & search transactions', settings: 'staff & config', orders: 'manage purchase orders', suppliers: 'manage suppliers', customers: 'manage customers' };
+    const titles = { pos: 'POS Register', inventory: 'Inventory', labels: 'Labels', sales: 'Dashboard', reports: 'Reports', transactions: 'Sales', settings: 'Settings', orders: 'Purchase Orders', suppliers: 'Suppliers', customers: 'Customers', categories: 'Categories' };
+    const subtitles = { pos: 'checkout & billing', inventory: 'manage products', labels: 'barcode labels', sales: 'overview & stats', reports: 'sales & analytics', transactions: 'view & search transactions', settings: 'staff & config', orders: 'manage purchase orders', suppliers: 'manage suppliers', customers: 'manage customers', categories: 'manage product categories' };
     document.getElementById('pageTitle').textContent = titles[page] || page;
     const subEl = document.querySelector('#pageTitle + span');
     if (subEl) subEl.textContent = `\u203A ${subtitles[page] || ''}`;
@@ -377,6 +377,7 @@ const App = {
       case 'orders': if (typeof Orders !== 'undefined') Orders.init(); break;
       case 'suppliers': if (typeof Suppliers !== 'undefined') Suppliers.init(); break;
       case 'customers': if (typeof Customers !== 'undefined') Customers.init(); break;
+      case 'categories': if (typeof Categories !== 'undefined') Categories.init(); break;
     }
   },
 
@@ -442,11 +443,17 @@ const App = {
         if (modal) modal.classList.add('hidden');
       }
     });
-    // Close modal on backdrop click
-    document.querySelectorAll('.modal-overlay, #heldModal, #receiptModal, #confirmModal').forEach(m => {
+    // Close modal on backdrop click (except data-entry modals and confirm dialog)
+    document.querySelectorAll('.modal-overlay, #heldModal, #receiptModal').forEach(m => {
       m.addEventListener('click', (e) => {
-        if (e.target === m) m.classList.add('hidden');
+        if (e.target === m && !m.dataset.noBackdropClose) m.classList.add('hidden');
       });
+    });
+    // Confirm modal: backdrop click = cancel (resolve false so promise completes)
+    document.getElementById('confirmModal')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        document.getElementById('confirmCancel')?.click();
+      }
     });
   },
 

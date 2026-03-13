@@ -233,11 +233,48 @@ const POS = {
     this.updateCartUI();
   },
 
-  setItemDiscountValue(sku, val) {
+  setItemDiscountValue(sku, val, fullRender) {
     const item = this.cart.find(c => c.sku === sku);
     if (!item) return;
     item.discountValue = parseFloat(val) || 0;
-    this.updateCartUI();
+    if (fullRender) {
+      this.updateCartUI();
+    } else {
+      this._updateCartTotalsOnly();
+    }
+  },
+
+  _updateCartTotalsOnly() {
+    const taxRate = App.taxRate() * 100;
+    const totalItems = this.cart.reduce((s, c) => s + c.quantity, 0);
+    const totalDiscount = this.getTotalDiscount();
+    const el = (id) => document.getElementById(id);
+
+    el('cartItemCount').textContent = totalItems;
+    el('cartDiscount').textContent = totalDiscount > 0 ? `-${App.currency(totalDiscount)}` : `₹0.00`;
+    el('cartTaxableValue').textContent = App.currency(this.getAfterDiscount());
+    el('cartCGST').textContent = App.currency(this.getCGST());
+    el('cartSGST').textContent = App.currency(this.getSGST());
+    el('cartTotal').textContent = App.currency(this.getTotal());
+
+    this.cart.forEach(c => {
+      const lineTotal = c.price * c.quantity;
+      const disc = this.getItemDiscount(c);
+      const finalTotal = lineTotal - disc;
+      const itemTax = finalTotal * (taxRate / 100);
+      const safeSku = c.sku.replace(/'/g, "\\'");
+      const row = document.querySelector(`[data-cart-sku="${CSS.escape(c.sku)}"]`);
+      if (!row) return;
+      const totalCell = row.querySelector('.cart-item-total');
+      if (totalCell) {
+        const hasDiscount = c.discountType !== 'none' && disc > 0;
+        totalCell.innerHTML = (hasDiscount ? `<span class="line-through text-gray-400 text-xs">${App.currency(lineTotal)}</span><br>` : '') + App.currency(finalTotal);
+      }
+      const taxCell = row.querySelector('.cart-item-tax');
+      if (taxCell) taxCell.textContent = App.currency(itemTax);
+      const badge = row.querySelector('.cart-disc-badge');
+      if (badge) badge.textContent = disc > 0 ? `-${App.currency(disc)}` : '';
+    });
   },
 
   getItemDiscount(item) {
@@ -308,7 +345,7 @@ const POS = {
 
         const safeSku = esc(c.sku);
         return `
-        <tr class="${rowBg}">
+        <tr class="${rowBg}" data-cart-sku="${safeSku}">
           <td class="px-4 py-2.5 text-center">
             <div class="cart-qty-ctrl">
               <button onclick="POS.updateQty('${safeSku}', -1)">−</button>
@@ -321,26 +358,30 @@ const POS = {
             <div class="text-xs text-gray-400">${esc(c.barcode || c.sku)}</div>
           </td>
           <td class="px-4 py-2.5 text-right font-semibold text-gray-700">${App.currency(c.price)}</td>
-          <td class="px-4 py-2.5 text-right text-gray-500">${App.currency(itemTax)}</td>
-          <td class="px-4 py-2.5 text-right font-bold text-gray-900">
+          <td class="px-4 py-2.5 text-right text-gray-500 cart-item-tax">${App.currency(itemTax)}</td>
+          <td class="px-4 py-2.5 text-right font-bold text-gray-900 cart-item-total">
             ${hasDiscount ? `<span class="line-through text-gray-400 text-xs">${App.currency(lineTotal)}</span><br>` : ''}
             ${App.currency(finalTotal)}
           </td>
           <td class="px-3 py-2.5 text-center">
             <div class="cart-disc-ctrl">
-              <select onchange="POS.setItemDiscountType('${safeSku}', this.value)">
-                <option value="none" ${c.discountType === 'none' ? 'selected' : ''}>—</option>
-                <option value="percent" ${c.discountType === 'percent' ? 'selected' : ''}>%</option>
-                <option value="flat" ${c.discountType === 'flat' ? 'selected' : ''}>₹</option>
-              </select>
-              ${c.discountType !== 'none' ? `
-                <input type="number" min="0" step="0.01"
-                  value="${c.discountValue}"
-                  onchange="POS.setItemDiscountValue('${safeSku}', this.value)"
-                  oninput="POS.setItemDiscountValue('${safeSku}', this.value)"
-                  placeholder="${c.discountType === 'percent' ? '%' : '₹'}" />
-              ` : ''}
-              ${hasDiscount ? `<span class="cart-disc-badge">-${App.currency(disc)}</span>` : ''}
+              <div class="cart-disc-row">
+                <select onchange="POS.setItemDiscountType('${safeSku}', this.value)">
+                  <option value="none" ${c.discountType === 'none' ? 'selected' : ''}>—</option>
+                  <option value="percent" ${c.discountType === 'percent' ? 'selected' : ''}>%</option>
+                  <option value="flat" ${c.discountType === 'flat' ? 'selected' : ''}>₹</option>
+                </select>
+                ${c.discountType !== 'none' ? `
+                  <input type="number" min="0" step="0.01"
+                    value="${c.discountValue || ''}"
+                    onchange="POS.setItemDiscountValue('${safeSku}', this.value, true)"
+                    oninput="POS.setItemDiscountValue('${safeSku}', this.value)"
+                    onfocus="if(this.value==='0')this.value=''"
+                    onblur="if(this.value==='')this.value=''"
+                    placeholder="${c.discountType === 'percent' ? '%' : '₹'}" />
+                ` : ''}
+              </div>
+              <span class="cart-disc-badge">${hasDiscount ? `-${App.currency(disc)}` : ''}</span>
             </div>
           </td>
           <td class="px-3 py-2.5 text-center">
@@ -1057,142 +1098,172 @@ const POS = {
     const tax = this.getTax();
     const grandTotal = this.getTotal();
 
-    // Build item rows
+    const halfRate = taxRate / 2;
+
+    // Build item rows (simplified: no per-item CGST/SGST columns — totals shown at bottom)
     const itemRows = this.cart.map((c, idx) => {
       const lineTotal = c.price * c.quantity;
       const disc = this.getItemDiscount(c);
       const finalTotal = lineTotal - disc;
-      const itemTax = finalTotal * (taxRate / 100);
-      const itemGross = finalTotal + itemTax;
       const hasDiscount = c.discountType !== 'none' && disc > 0;
+      const bg = idx % 2 === 0 ? '#fff' : '#f9fafb';
 
       return `
-        <tr style="${idx % 2 === 0 ? '' : 'background:#f8fafc;'}">
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:13px;">${idx + 1}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
-            <div style="font-weight:600;color:#1f2937;font-size:13px;">${esc(c.name)}</div>
-            <div style="font-size:11px;color:#9ca3af;">${esc(c.barcode || c.sku)}${c.hsn_code ? ' | HSN: ' + esc(c.hsn_code) : ''}</div>
+        <tr style="background:${bg};">
+          <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;text-align:center;color:#9ca3af;font-size:12px;">${idx + 1}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;">
+            <div style="font-weight:600;color:#111827;font-size:13px;line-height:1.4;">${esc(c.name)}</div>
+            <div style="font-size:10px;color:#9ca3af;margin-top:2px;">
+              SKU: ${esc(c.sku)}${c.hsn_code ? ' &nbsp;|&nbsp; HSN: ' + esc(c.hsn_code) : ''}
+            </div>
           </td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px;">${c.quantity}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(c.price)}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">
-            ${hasDiscount ? `<span style="color:#ef4444;font-size:11px;">-${App.currency(disc)}</span>` : '—'}
+          <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px;color:#374151;">${c.quantity}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;color:#374151;">${App.currency(c.price)}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">
+            ${hasDiscount
+              ? `<span style="color:#dc2626;font-weight:600;">-${App.currency(disc)}</span>
+                 <div style="font-size:10px;color:#9ca3af;">${c.discountType === 'percent' ? c.discountValue + '%' : sym + c.discountValue}</div>`
+              : '<span style="color:#d1d5db;">—</span>'}
           </td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(itemTax / 2)}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(itemTax / 2)}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;font-size:13px;">${App.currency(itemGross)}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;font-weight:600;color:#111827;">${App.currency(finalTotal)}</td>
         </tr>`;
     }).join('');
 
-    // Format date nicely
+    // Format dates
     const formattedDate = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const validUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
       .toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
-    const html = `
-      <div class="quote-a4" style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#1f2937;line-height:1.5;">
+    const storeName = esc(s.store_name || 'Next Level Furniture');
+    const storeAddr = esc(s.address || '');
+    const storePhone = esc(s.phone || '');
+    const storeEmail = s.email ? esc(s.email) : '';
+    const storeGstin = s.gstin ? esc(s.gstin) : '';
 
-        <!-- Header -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:20px;border-bottom:3px solid #4f46e5;">
+    const html = `
+      <div class="quote-a4" style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#1f2937;line-height:1.5;width:210mm;min-height:297mm;margin:0 auto;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:0;box-sizing:border-box;">
+
+        <!-- Header Band -->
+        <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:28px 32px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;">
           <div style="display:flex;align-items:center;gap:16px;">
-            <img src="/static/img/logo.svg" alt="NLF" style="width:64px;height:64px;border-radius:10px;" />
+            <img src="/static/img/logo.svg" alt="Logo" style="width:56px;height:56px;border-radius:10px;background:#fff;padding:2px;" />
             <div>
-              <div style="font-size:22px;font-weight:800;color:#1f2937;letter-spacing:0.5px;">${esc(s.store_name || 'Next Level Furniture')}</div>
-              <div style="font-size:12px;color:#6b7280;margin-top:2px;">${esc(s.address || '')}</div>
-              <div style="font-size:12px;color:#6b7280;">${esc(s.phone || '')}${s.email ? ' | ' + esc(s.email) : ''}</div>
+              <div style="font-size:20px;font-weight:700;letter-spacing:0.3px;">${storeName}</div>
+              <div style="font-size:11px;opacity:0.85;margin-top:3px;">${storeAddr}</div>
+              <div style="font-size:11px;opacity:0.85;">${storePhone ? '&#9742; ' + storePhone : ''}${storeEmail ? ' &nbsp;&#9993; ' + storeEmail : ''}</div>
+              ${storeGstin ? `<div style="font-size:11px;opacity:0.85;">GSTIN: ${storeGstin}</div>` : ''}
             </div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:28px;font-weight:800;color:#4f46e5;letter-spacing:1px;">QUOTATION</div>
-            <div style="font-size:12px;color:#6b7280;margin-top:4px;">
-              <strong>Quote #:</strong> ${esc(quoteNum)}<br/>
-              <strong>Date:</strong> ${formattedDate}<br/>
-              <strong>Valid Until:</strong> ${validUntil}
-            </div>
+            <div style="font-size:26px;font-weight:800;letter-spacing:2px;">QUOTATION</div>
+            <div style="font-size:11px;opacity:0.8;margin-top:4px;">Ref: ${esc(quoteNum)}</div>
           </div>
         </div>
 
-        <!-- Customer Info -->
-        ${custName || custPhone ? `
-        <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:20px;">
-          <div style="font-size:11px;font-weight:700;color:#4f46e5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Quotation For</div>
-          ${custName ? `<div style="font-size:15px;font-weight:700;color:#1f2937;">${esc(custName)}</div>` : ''}
-          ${custPhone ? `<div style="font-size:13px;color:#6b7280;">Phone: ${esc(custPhone)}</div>` : ''}
-          ${custEmail ? `<div style="font-size:13px;color:#6b7280;">Email: ${esc(custEmail)}</div>` : ''}
+        <!-- Quote Meta + Customer -->
+        <div style="display:flex;justify-content:space-between;padding:20px 32px;background:#f8fafc;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Quote Details</div>
+            <table style="font-size:12px;color:#374151;border-collapse:collapse;">
+              <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Date</td><td style="font-weight:600;">${formattedDate}</td></tr>
+              <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Valid Until</td><td style="font-weight:600;">${validUntil}</td></tr>
+              <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Quote #</td><td style="font-weight:600;">${esc(quoteNum)}</td></tr>
+            </table>
+          </div>
+          ${custName || custPhone ? `
+          <div style="text-align:right;">
+            <div style="font-size:10px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Quotation For</div>
+            ${custName ? `<div style="font-size:14px;font-weight:700;color:#111827;">${esc(custName)}</div>` : ''}
+            ${custPhone ? `<div style="font-size:12px;color:#6b7280;">${esc(custPhone)}</div>` : ''}
+            ${custEmail ? `<div style="font-size:12px;color:#6b7280;">${esc(custEmail)}</div>` : ''}
+          </div>` : ''}
         </div>
-        ` : ''}
 
         <!-- Items Table -->
-        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-          <thead>
-            <tr style="background:#4f46e5;color:#fff;">
-              <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:40px;">#</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Item Description</th>
-              <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:50px;">Qty</th>
-              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:90px;">Unit Price</th>
-              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">Discount</th>
-              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">CGST</th>
-              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">SGST</th>
-              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:100px;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemRows}
-          </tbody>
-        </table>
+        <div style="padding:0 32px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
+          <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+            <thead>
+              <tr style="background:#1e3a5f;">
+                <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#fff;width:36px;border-radius:6px 0 0 0;">#</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#fff;">Description</th>
+                <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#fff;width:45px;">Qty</th>
+                <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#fff;width:90px;">Rate</th>
+                <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#fff;width:80px;">Discount</th>
+                <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#fff;width:90px;border-radius:0 6px 0 0;">Net Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemRows}
+            </tbody>
+          </table>
+        </div>
 
-        <!-- Totals -->
-        <div style="display:flex;justify-content:flex-end;margin-bottom:30px;">
-          <div style="width:300px;">
-            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
-              <span style="color:#6b7280;">Subtotal</span>
-              <span style="font-weight:600;">${App.currency(subtotal)}</span>
-            </div>
-            ${totalDiscount > 0 ? `
-            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#ef4444;">
-              <span>Total Discount</span>
-              <span style="font-weight:600;">-${App.currency(totalDiscount)}</span>
-            </div>` : ''}
-            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
-              <span style="color:#6b7280;">Taxable Value</span>
-              <span style="font-weight:600;">${App.currency(subtotal - totalDiscount)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
-              <span style="color:#6b7280;">CGST (${taxRate / 2}%)</span>
-              <span style="font-weight:600;">${App.currency(tax / 2)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
-              <span style="color:#6b7280;">SGST (${taxRate / 2}%)</span>
-              <span style="font-weight:600;">${App.currency(tax / 2)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;border-top:2px solid #4f46e5;margin-top:6px;">
-              <span style="color:#4f46e5;">TOTAL</span>
-              <span style="color:#4f46e5;">${App.currency(grandTotal)}</span>
+        <!-- Totals Section -->
+        <div style="padding:0 32px 24px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
+          <div style="display:flex;justify-content:flex-end;">
+            <div style="width:320px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+              <div style="display:flex;justify-content:space-between;padding:8px 16px;font-size:12px;background:#f9fafb;">
+                <span style="color:#6b7280;">Subtotal</span>
+                <span style="font-weight:600;color:#374151;">${App.currency(subtotal)}</span>
+              </div>
+              ${totalDiscount > 0 ? `
+              <div style="display:flex;justify-content:space-between;padding:8px 16px;font-size:12px;border-top:1px solid #f3f4f6;">
+                <span style="color:#dc2626;">Discount</span>
+                <span style="font-weight:600;color:#dc2626;">-${App.currency(totalDiscount)}</span>
+              </div>` : ''}
+              <div style="display:flex;justify-content:space-between;padding:8px 16px;font-size:12px;border-top:1px solid #f3f4f6;">
+                <span style="color:#6b7280;">Taxable Value</span>
+                <span style="font-weight:600;color:#374151;">${App.currency(subtotal - totalDiscount)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:8px 16px;font-size:12px;border-top:1px solid #f3f4f6;">
+                <span style="color:#6b7280;">CGST (${halfRate}%)</span>
+                <span style="font-weight:600;color:#374151;">${App.currency(tax / 2)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:8px 16px;font-size:12px;border-top:1px solid #f3f4f6;">
+                <span style="color:#6b7280;">SGST (${halfRate}%)</span>
+                <span style="font-weight:600;color:#374151;">${App.currency(tax / 2)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:12px 16px;font-size:16px;font-weight:800;background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;border-radius:0 0 7px 7px;">
+                <span>TOTAL</span>
+                <span>${App.currency(grandTotal)}</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Amount in Words -->
-        <div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 16px;margin-bottom:24px;font-size:12px;">
+        <div style="margin:0 32px 20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 16px;font-size:12px;color:#166534;">
           <strong>Amount in Words:</strong> ${esc(POS.numberToWords(Math.round(grandTotal)))} Rupees Only
         </div>
 
-        <!-- Terms & Conditions -->
-        <div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:auto;">
-          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Terms & Conditions</div>
-          <ol style="font-size:11px;color:#6b7280;margin:0;padding-left:16px;line-height:1.8;">
+        <!-- Terms -->
+        <div style="margin:0 32px;padding-top:16px;border-top:1px solid #e5e7eb;">
+          <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;">Terms & Conditions</div>
+          <ol style="font-size:10px;color:#6b7280;margin:0;padding-left:16px;line-height:1.9;">
             <li>This quotation is valid for 7 days from the date of issue.</li>
             <li>Prices are inclusive of CGST & SGST as applicable.</li>
             <li>Delivery charges, if any, will be communicated separately.</li>
-            <li>Payment terms: Full payment at the time of purchase.</li>
+            <li>Payment terms: As mutually agreed at the time of order confirmation.</li>
             <li>Product availability is subject to stock at the time of order confirmation.</li>
           </ol>
         </div>
 
-        <!-- Footer -->
-        <div style="text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;">
-          <div style="font-size:12px;color:#6b7280;">Thank you for your interest in ${esc(s.store_name || 'our products')}!</div>
-          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">${esc(s.phone || '')}${s.email ? ' | ' + esc(s.email) : ''}</div>
+        <!-- Footer with QR images -->
+        <div style="margin-top:8px;padding:14px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;border-radius:0 0 8px 8px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+          ${s.instagram_qr ? `
+          <div style="display:flex;align-items:center;gap:6px;">
+            <img src="${s.instagram_qr}" style="width:40px;height:40px;object-fit:contain;border-radius:6px;" />
+            <span style="font-size:9px;color:#e1306c;font-weight:600;">Follow us<br/>on Instagram</span>
+          </div>` : '<div></div>'}
+          <div style="text-align:center;">
+            <div style="font-size:12px;color:#374151;font-weight:600;">Thank you for shopping at ${storeName}!</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:2px;">${storePhone}${storeEmail ? ' | ' + storeEmail : ''}</div>
+          </div>
+          ${s.google_qr ? `
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:9px;color:#4285f4;font-weight:600;text-align:right;">Review us<br/>on Google</span>
+            <img src="${s.google_qr}" style="width:40px;height:40px;object-fit:contain;border-radius:6px;" />
+          </div>` : '<div></div>'}
         </div>
       </div>
     `;

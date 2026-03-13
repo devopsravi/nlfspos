@@ -136,7 +136,7 @@ class PgConnectionWrapper:
 
     # Tables with SERIAL id columns (for RETURNING id)
     # Only tables where id is auto-generated — NOT inventory (sku PK), users (text PK), settings (key PK)
-    _SERIAL_TABLES = {"suppliers", "customers", "sales", "sale_items", "inventory_log", "purchases", "purchase_orders", "purchase_order_items"}
+    _SERIAL_TABLES = {"suppliers", "customers", "sales", "sale_items", "inventory_log", "purchases", "purchase_orders", "purchase_order_items", "categories"}
 
     def execute(self, sql, params=None):
         """Execute SQL with automatic dialect translation."""
@@ -426,6 +426,13 @@ CREATE TABLE IF NOT EXISTS purchase_order_items (
     FOREIGN KEY (sku) REFERENCES inventory(sku)
 );
 
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    created TEXT NOT NULL,
+    last_updated TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
 CREATE INDEX IF NOT EXISTS idx_sales_receipt ON sales(receipt_number);
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
@@ -600,6 +607,13 @@ CREATE TABLE IF NOT EXISTS purchase_order_items (
     line_total DOUBLE PRECISION DEFAULT 0,
     FOREIGN KEY (order_id) REFERENCES purchase_orders(id),
     FOREIGN KEY (sku) REFERENCES inventory(sku)
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+    id SERIAL PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    created TEXT NOT NULL,
+    last_updated TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
@@ -797,6 +811,24 @@ def _run_sqlite_migrations(conn):
             conn.execute("PRAGMA foreign_keys = ON")
         print(f"[DB] Migration: converted {len(old_sku_rows)} old NLF- SKUs to 6-digit numbers")
 
+    # Seed categories table from existing inventory + hardcoded defaults
+    cat_count = conn.execute("SELECT COUNT(*) as cnt FROM categories").fetchone()[0]
+    if cat_count == 0:
+        now = datetime.now().isoformat()
+        defaults = ['Recliner', 'Sofa', 'Dining Table', 'Bed Frame', 'Desk', 'Mattress',
+                     'Decor', 'Wardrobe', 'Chair', 'Outdoor', 'Dressing Table', 'Coffee Table',
+                     'Shelf', 'TV Unit', 'Storage', 'Lighting']
+        inv_cats = conn.execute(
+            "SELECT DISTINCT category FROM inventory WHERE category IS NOT NULL AND category != ''"
+        ).fetchall()
+        all_cats = set(defaults) | {r[0] for r in inv_cats}
+        for cat in sorted(all_cats):
+            try:
+                conn.execute("INSERT OR IGNORE INTO categories (name, created, last_updated) VALUES (?,?,?)", (cat, now, now))
+            except Exception:
+                pass
+        print(f"[DB] Migration: seeded {len(all_cats)} categories")
+
     conn.commit()
     print("[DB] Migration: ensured inventory_log, purchases, and purchase_orders tables exist")
 
@@ -991,6 +1023,25 @@ def _run_pg_migrations(conn):
 
         conn._conn.commit()
         print(f"[DB] PG Migration: converted {len(old_sku_rows)} old NLF- SKUs to 6-digit numbers")
+
+    # Seed categories table from existing inventory + defaults
+    cur.execute("SELECT COUNT(*) FROM categories")
+    cat_count = cur.fetchone()[0]
+    if cat_count == 0:
+        now = datetime.now().isoformat()
+        defaults = ['Recliner', 'Sofa', 'Dining Table', 'Bed Frame', 'Desk', 'Mattress',
+                     'Decor', 'Wardrobe', 'Chair', 'Outdoor', 'Dressing Table', 'Coffee Table',
+                     'Shelf', 'TV Unit', 'Storage', 'Lighting']
+        cur.execute("SELECT DISTINCT category FROM inventory WHERE category IS NOT NULL AND category != ''")
+        inv_cats = {r[0] for r in cur.fetchall()}
+        all_cats = set(defaults) | inv_cats
+        for cat in sorted(all_cats):
+            cur.execute(
+                "INSERT INTO categories (name, created, last_updated) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+                (cat, now, now)
+            )
+        conn._conn.commit()
+        print(f"[DB] PG Migration: seeded {len(all_cats)} categories")
 
 
 # ---------------------------------------------------------------------------
@@ -1232,6 +1283,9 @@ def export_all_data():
         po_list.append(order)
     data["purchase_orders"] = po_list
 
+    rows = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
+    data["categories"] = [dict(r) for r in rows]
+
     return data
 
 
@@ -1446,5 +1500,19 @@ def import_all_data(data):
             except Exception:
                 pass
     print(f"  [IMPORT] Purchase orders: {imported['purchase_orders']}")
+
+    # --- Categories ---
+    cat_count = 0
+    for cat in data.get("categories", []):
+        try:
+            conn.execute(
+                "INSERT OR IGNORE INTO categories (name, created, last_updated) VALUES (?,?,?)",
+                (cat["name"], cat.get("created", now), cat.get("last_updated", now))
+            )
+            cat_count += 1
+        except Exception as e:
+            print(f"  [WARN] Category {cat.get('name')}: {e}")
+    conn.commit()
+    print(f"  [IMPORT] Categories: {cat_count}")
 
     return imported

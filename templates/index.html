@@ -44,7 +44,7 @@
 
   <!-- App CSS -->
   <link rel="stylesheet" href="/static/css/main.css?v=13" />
-  <link rel="stylesheet" href="/static/css/pos.css?v=13" />
+  <link rel="stylesheet" href="/static/css/pos.css?v=16" />
   <link rel="stylesheet" href="/static/css/labels.css?v=13" />
   <link rel="stylesheet" href="/static/css/receipt.css?v=13" />
 </head>
@@ -93,6 +93,9 @@
           </a>
           <a href="#" data-page="customers" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
             <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Customers
+          </a>
+          <a href="#" data-page="categories" class="nav-link sub-link flex items-center gap-2 px-5 py-2 text-[13px] text-[#a0b4c8] hover:text-white transition">
+            <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg> Categories
           </a>
         </div>
       </div>
@@ -389,7 +392,7 @@
         </div>
 
         <!-- Add/Edit Product Modal -->
-        <div id="productModal" class="modal-overlay hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div id="productModal" class="modal-overlay hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50" data-no-backdrop-close="true">
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <div class="px-6 py-4 border-b flex items-center justify-between">
               <h3 id="productModalTitle" class="font-semibold text-lg">Add Product</h3>
@@ -412,13 +415,8 @@
                 </div>
                 <div>
                   <label class="block text-xs text-gray-500 mb-1">Category *</label>
-                  <select name="category" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                  <select name="category" id="productCategorySelect" required class="w-full border rounded-lg px-3 py-2 text-sm">
                     <option value="">Select…</option>
-                    <option>Recliner</option><option>Sofa</option><option>Dining Table</option>
-                    <option>Bed Frame</option><option>Desk</option><option>Mattress</option>
-                    <option>Decor</option><option>Wardrobe</option><option>Chair</option>
-                    <option>Outdoor</option><option>Dressing Table</option><option>Coffee Table</option>
-                    <option>Shelf</option><option>TV Unit</option><option>Storage</option><option>Lighting</option>
                   </select>
                 </div>
                 <div>
@@ -1124,6 +1122,10 @@
                     <label class="block text-xs text-gray-500 mb-1">Receipt Footer Message</label>
                     <textarea name="receipt_footer" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
                   </div>
+                  <div class="col-span-2">
+                    <label class="block text-xs text-gray-500 mb-1">GSTIN</label>
+                    <input name="gstin" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. 36AABCU9603R1ZM" />
+                  </div>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                   <button type="submit" class="bg-teal-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-teal-600 flex items-center gap-1">
@@ -1132,6 +1134,45 @@
                   </button>
                 </div>
               </form>
+
+              <!-- Social / QR Image Uploads (separate from the main form) -->
+              <div class="border-t px-5 py-5">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  Scan &amp; Follow Images (shown on Quotations)
+                </h4>
+                <p class="text-xs text-gray-400 mb-4">Upload your Instagram or Google Business QR/scanner images. These will appear at the bottom of generated quotations.</p>
+                <div class="grid grid-cols-2 gap-6">
+                  <!-- Instagram QR -->
+                  <div class="text-center">
+                    <label class="block text-xs font-medium text-gray-600 mb-2">Instagram</label>
+                    <div id="instagramQrPreview" class="w-28 h-28 mx-auto rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 overflow-hidden mb-2">
+                      <span class="text-gray-300 text-xs">No image</span>
+                    </div>
+                    <div class="flex items-center justify-center gap-2">
+                      <label class="cursor-pointer bg-pink-50 hover:bg-pink-100 text-pink-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">
+                        <input type="file" accept="image/*" id="instagramQrFile" class="hidden" />
+                        Upload
+                      </label>
+                      <button id="instagramQrDelete" class="text-xs text-red-400 hover:text-red-600 hidden">Remove</button>
+                    </div>
+                  </div>
+                  <!-- Google QR -->
+                  <div class="text-center">
+                    <label class="block text-xs font-medium text-gray-600 mb-2">Google Business</label>
+                    <div id="googleQrPreview" class="w-28 h-28 mx-auto rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 overflow-hidden mb-2">
+                      <span class="text-gray-300 text-xs">No image</span>
+                    </div>
+                    <div class="flex items-center justify-center gap-2">
+                      <label class="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">
+                        <input type="file" accept="image/*" id="googleQrFile" class="hidden" />
+                        Upload
+                      </label>
+                      <button id="googleQrDelete" class="text-xs text-red-400 hover:text-red-600 hidden">Remove</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1460,6 +1501,72 @@
           </div>
         </div>
       </section>
+
+      <!-- ================================================================
+           PAGE: Categories (standalone page under Items menu group)
+           ================================================================ -->
+      <section id="page-categories" class="page hidden p-6" style="display:none">
+        <div class="bg-amber-600 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+            Manage product categories
+          </span>
+          <button id="btnAddCategory" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            Add Category
+          </button>
+        </div>
+        <div class="bg-white rounded-b-lg shadow-sm border border-t-0">
+          <div class="flex items-center justify-between px-4 py-3 border-b">
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-500">Search:</label>
+              <input id="categorySearch" type="text" placeholder="Category name..."
+                class="w-48 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-amber-400 focus:outline-none" />
+            </div>
+            <span id="categoryCount" class="text-xs text-gray-500">0 categories</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="categoriesTable">
+              <thead class="bg-amber-600 text-white text-xs uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-2.5 text-left w-12">#</th>
+                  <th class="px-4 py-2.5 text-left">Category Name</th>
+                  <th class="px-4 py-2.5 text-right">Products</th>
+                  <th class="px-4 py-2.5 text-center w-32">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="categoriesTableBody" class="divide-y divide-gray-100">
+                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400 text-xs">Loading categories...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Category Add/Edit Modal -->
+      <div id="categoryModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[60]" data-no-backdrop-close="true">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4">
+          <div class="bg-amber-600 text-white px-5 py-3 rounded-t-xl flex items-center justify-between">
+            <h3 id="categoryModalTitle" class="font-semibold text-sm">Add Category</h3>
+            <button id="categoryModalClose" class="hover:bg-white/20 rounded-full p-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <form id="categoryForm" class="p-5">
+            <input type="hidden" id="categoryEditId" value="" />
+            <div class="mb-4">
+              <label class="block text-xs text-gray-500 mb-1">Category Name *</label>
+              <input type="text" id="categoryNameInput" name="name" required
+                class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none"
+                placeholder="Enter category name" />
+            </div>
+            <div class="flex gap-2 justify-end">
+              <button type="button" id="categoryFormCancel" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+              <button type="submit" class="px-4 py-2 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium">Save</button>
+            </div>
+          </form>
+        </div>
+      </div>
 
       <!-- ================================================================
            PAGE: Purchase Orders (standalone page under Items menu group)
@@ -1855,7 +1962,7 @@
 
   <!-- ===== QUOTE PREVIEW MODAL ===== -->
   <div id="quoteModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+    <div class="bg-white rounded-2xl shadow-2xl w-full mx-4 max-h-[90vh] flex flex-col" style="max-width:860px;">
       <div class="px-6 py-4 border-b flex items-center justify-between">
         <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
           <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -1870,7 +1977,7 @@
         </div>
       </div>
       <div class="flex-1 overflow-y-auto p-6 bg-gray-100">
-        <div id="quoteContent" class="bg-white shadow-lg mx-auto" style="width:210mm;min-height:297mm;padding:20mm;box-sizing:border-box;">
+        <div id="quoteContent" class="bg-white shadow-lg mx-auto" style="width:210mm;min-height:297mm;box-sizing:border-box;">
           <!-- Dynamically filled by JS -->
         </div>
       </div>
@@ -2084,17 +2191,18 @@
   <!-- JS Modules (v= cache-buster) -->
   <script src="/static/js/offline-store.js?v=14"></script>
   <script src="/static/js/scanner.js?v=14"></script>
-  <script src="/static/js/app.js?v=14"></script>
-  <script src="/static/js/inventory.js?v=19"></script>
-  <script src="/static/js/pos.js?v=17"></script>
+  <script src="/static/js/app.js?v=17"></script>
+  <script src="/static/js/inventory.js?v=20"></script>
+  <script src="/static/js/pos.js?v=21"></script>
   <script src="/static/js/labels.js?v=14"></script>
   <script src="/static/js/sales.js?v=14"></script>
   <script src="/static/js/reports.js?v=14"></script>
   <script src="/static/js/transactions.js?v=14"></script>
-  <script src="/static/js/settings.js?v=14"></script>
+  <script src="/static/js/settings.js?v=15"></script>
   <script src="/static/js/suppliers.js?v=14"></script>
   <script src="/static/js/customers.js?v=14"></script>
   <script src="/static/js/orders.js?v=14"></script>
+  <script src="/static/js/categories.js?v=1"></script>
 
   <!-- Barcode Scanner Modal (shared by POS & Inventory) -->
   <div id="scannerModal" class="hidden fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">

@@ -13,6 +13,7 @@ import functools
 import atexit
 import time
 import random
+import base64
 from collections import defaultdict
 from datetime import datetime, date, timedelta
 from pathlib import Path
@@ -374,6 +375,56 @@ def update_settings():
     return jsonify({"success": True, "data": data})
 
 
+@app.route("/api/settings/upload-image", methods=["POST"])
+@login_required
+@admin_required
+def upload_settings_image():
+    """Upload an image and store as base64 data URI in a settings key."""
+    key = request.form.get("key", "")
+    allowed_keys = {"instagram_qr", "google_qr"}
+    if key not in allowed_keys:
+        return jsonify({"error": "Invalid image key"}), 400
+
+    if "file" not in request.files or not request.files["file"].filename:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in ("png", "jpg", "jpeg", "webp", "svg"):
+        return jsonify({"error": "Only PNG, JPG, WebP, SVG images allowed"}), 400
+
+    data = file.read()
+    if len(data) > 2 * 1024 * 1024:
+        return jsonify({"error": "Image must be under 2 MB"}), 400
+
+    mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+            "webp": "image/webp", "svg": "image/svg+xml"}.get(ext, "image/png")
+    data_uri = f"data:{mime};base64,{base64.b64encode(data).decode()}"
+
+    conn = db()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, data_uri))
+    conn.commit()
+
+    return jsonify({"success": True, "key": key, "data_uri": data_uri})
+
+
+@app.route("/api/settings/delete-image", methods=["POST"])
+@login_required
+@admin_required
+def delete_settings_image():
+    """Remove an uploaded image from settings."""
+    data = request.get_json()
+    key = data.get("key", "")
+    allowed_keys = {"instagram_qr", "google_qr"}
+    if key not in allowed_keys:
+        return jsonify({"error": "Invalid image key"}), 400
+
+    conn = db()
+    conn.execute("DELETE FROM settings WHERE key = ?", (key,))
+    conn.commit()
+    return jsonify({"success": True})
+
+
 # ---------------------------------------------------------------------------
 # Inventory API
 # ---------------------------------------------------------------------------
@@ -572,6 +623,85 @@ def delete_product(sku):
     return jsonify({"success": True})
 
 
+# ---------------------------------------------------------------------------
+# Categories API
+# ---------------------------------------------------------------------------
+
+@app.route("/api/categories", methods=["GET"])
+@login_required
+def list_categories():
+    rows = db().execute("SELECT * FROM categories ORDER BY name").fetchall()
+    return jsonify(rows_to_list(rows))
+
+
+@app.route("/api/categories", methods=["POST"])
+@login_required
+def add_category():
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Category name is required"}), 400
+
+    now = datetime.now().isoformat()
+    try:
+        db().execute(
+            "INSERT INTO categories (name, created, last_updated) VALUES (?,?,?)",
+            (name, now, now)
+        )
+        db().commit()
+    except Exception:
+        return jsonify({"error": "Category already exists"}), 409
+    return jsonify({"success": True, "name": name}), 201
+
+
+@app.route("/api/categories/<int:cat_id>", methods=["PUT"])
+@login_required
+def update_category(cat_id):
+    data = request.get_json()
+    new_name = (data.get("name") or "").strip()
+    if not new_name:
+        return jsonify({"error": "Category name is required"}), 400
+
+    conn = db()
+    row = conn.execute("SELECT * FROM categories WHERE id = ?", (cat_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Category not found"}), 404
+
+    old_name = row["name"]
+    if new_name == old_name:
+        return jsonify({"success": True})
+
+    now = datetime.now().isoformat()
+    try:
+        conn.execute("UPDATE categories SET name=?, last_updated=? WHERE id=?", (new_name, now, cat_id))
+        conn.execute("UPDATE inventory SET category=? WHERE category=?", (new_name, old_name))
+        conn.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({"error": "Category name already exists"}), 409
+    return jsonify({"success": True})
+
+
+@app.route("/api/categories/<int:cat_id>", methods=["DELETE"])
+@login_required
+def delete_category(cat_id):
+    conn = db()
+    row = conn.execute("SELECT * FROM categories WHERE id = ?", (cat_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Category not found"}), 404
+
+    usage = conn.execute("SELECT COUNT(*) as cnt FROM inventory WHERE category = ?", (row["name"],)).fetchone()["cnt"]
+    if usage > 0:
+        return jsonify({"error": f"Cannot delete: {usage} product(s) use this category"}), 409
+
+    conn.execute("DELETE FROM categories WHERE id = ?", (cat_id,))
+    conn.commit()
+    return jsonify({"success": True})
+
+
 @app.route("/api/inventory/export", methods=["GET"])
 @login_required
 def export_inventory_csv():
@@ -681,11 +811,9 @@ def import_inventory_csv():
 
 @app.route("/api/inventory/categories", methods=["GET"])
 @login_required
-def get_categories():
-    rows = db().execute(
-        "SELECT DISTINCT category FROM inventory WHERE category != '' ORDER BY category"
-    ).fetchall()
-    return jsonify([r["category"] for r in rows])
+def get_inventory_categories():
+    rows = db().execute("SELECT name FROM categories ORDER BY name").fetchall()
+    return jsonify([r["name"] for r in rows])
 
 
 # ---------------------------------------------------------------------------

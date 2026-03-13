@@ -37,6 +37,60 @@ const Settings = {
       const input = form.elements[key];
       if (input) input.value = s[key] ?? '';
     });
+    this._renderQrPreview('instagram_qr', 'instagramQrPreview', 'instagramQrDelete');
+    this._renderQrPreview('google_qr', 'googleQrPreview', 'googleQrDelete');
+  },
+
+  _renderQrPreview(settingsKey, previewId, deleteId) {
+    const preview = document.getElementById(previewId);
+    const delBtn = document.getElementById(deleteId);
+    if (!preview) return;
+    const dataUri = App.settings[settingsKey];
+    if (dataUri && dataUri.startsWith('data:')) {
+      preview.innerHTML = `<img src="${dataUri}" style="width:100%;height:100%;object-fit:contain;" />`;
+      if (delBtn) delBtn.classList.remove('hidden');
+    } else {
+      preview.innerHTML = '<span class="text-gray-300 text-xs">No image</span>';
+      if (delBtn) delBtn.classList.add('hidden');
+    }
+  },
+
+  _bindQrUpload(fileInputId, settingsKey, previewId, deleteId) {
+    const fileInput = document.getElementById(fileInputId);
+    const delBtn = document.getElementById(deleteId);
+    if (!fileInput) return;
+
+    fileInput.onchange = async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('key', settingsKey);
+      fd.append('file', file);
+      try {
+        const res = await fetch('/api/settings/upload-image', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) { App.toast(data.error || 'Upload failed', 'error'); return; }
+        App.settings[settingsKey] = data.data_uri;
+        this._renderQrPreview(settingsKey, previewId, deleteId);
+        App.toast('Image uploaded');
+      } catch (e) { App.toast('Upload failed', 'error'); }
+      fileInput.value = '';
+    };
+
+    if (delBtn) {
+      delBtn.onclick = async () => {
+        try {
+          const res = await fetch('/api/settings/delete-image', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: settingsKey })
+          });
+          if (!res.ok) { App.toast('Delete failed', 'error'); return; }
+          delete App.settings[settingsKey];
+          this._renderQrPreview(settingsKey, previewId, deleteId);
+          App.toast('Image removed');
+        } catch (e) { App.toast('Delete failed', 'error'); }
+      };
+    }
   },
 
   /* ----- POS settings form ----- */
@@ -244,6 +298,10 @@ const Settings = {
       clearTimeout(debounce);
       debounce = setTimeout(() => this.renderUsers(), 200);
     };
+
+    // QR image uploads
+    this._bindQrUpload('instagramQrFile', 'instagram_qr', 'instagramQrPreview', 'instagramQrDelete');
+    this._bindQrUpload('googleQrFile', 'google_qr', 'googleQrPreview', 'googleQrDelete');
 
     // Store settings form
     document.getElementById('settingsForm').onsubmit = async (e) => {

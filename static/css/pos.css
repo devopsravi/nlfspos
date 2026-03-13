@@ -124,33 +124,61 @@
 /* Discount controls in table cell */
 .cart-disc-ctrl {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 3px;
   justify-content: center;
 }
+.cart-disc-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .cart-disc-ctrl select {
   font-size: 11px;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  padding: 2px 4px;
-  background: #f9fafb;
-  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  padding: 4px 2px 4px 4px;
+  background: #f3f4f6;
+  color: #374151;
   cursor: pointer;
-  max-width: 60px;
+  min-width: 38px;
+  text-align: center;
+  outline: none;
+}
+.cart-disc-ctrl select:focus {
+  border-color: #3b82f6;
 }
 .cart-disc-ctrl input {
-  width: 42px;
-  font-size: 11px;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  padding: 2px 4px;
-  text-align: right;
+  width: 56px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  padding: 4px 6px;
+  text-align: center;
+  background: #eff6ff;
+  color: #1e40af;
+  outline: none;
+}
+.cart-disc-ctrl input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.cart-disc-ctrl input::-webkit-inner-spin-button,
+.cart-disc-ctrl input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.cart-disc-ctrl input[type=number] {
+  -moz-appearance: textfield;
 }
 .cart-disc-badge {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #dc2626;
   white-space: nowrap;
+  min-height: 14px;
 }
 
 /* Active payment method */
@@ -204,10 +232,17 @@
 .dark .cart-disc-ctrl select {
   background: #1f2937;
   border-color: #4b5563;
-  color: #9ca3af;
+  color: #d1d5db;
 }
 .dark .cart-disc-ctrl input {
-  background: #1f2937;
-  border-color: #4b5563;
-  color: #e5e7eb;
+  background: #1e3a5f;
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+.dark .cart-disc-ctrl input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+.dark .cart-disc-ctrl select:focus {
+  border-color: #60a5fa;
 }

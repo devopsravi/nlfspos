@@ -32,8 +32,10 @@ const Inventory = {
 
   async loadCategories() {
     try {
-      const res = await fetch('/api/inventory/categories');
-      const cats = await res.json();
+      const res = await fetch('/api/categories');
+      const rows = await res.json();
+      const cats = rows.map(r => r.name);
+
       ['invCategoryFilter', 'posCategoryFilter'].forEach(id => {
         const sel = document.getElementById(id);
         if (!sel) return;
@@ -41,6 +43,13 @@ const Inventory = {
         sel.innerHTML = '<option value="">All Categories</option>' +
           cats.map(c => `<option value="${esc(c)}"${c === current ? ' selected' : ''}>${esc(c)}</option>`).join('');
       });
+
+      const prodSel = document.getElementById('productCategorySelect');
+      if (prodSel) {
+        const current = prodSel.value;
+        prodSel.innerHTML = '<option value="">Select…</option>' +
+          cats.map(c => `<option value="${esc(c)}"${c === current ? ' selected' : ''}>${esc(c)}</option>`).join('');
+      }
     } catch (e) { /* ignore */ }
   },
 
