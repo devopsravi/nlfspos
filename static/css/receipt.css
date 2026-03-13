@@ -91,12 +91,12 @@
 
 /* Print mode — receipt (thermal 80mm) or quote (A4) */
 @media print {
-  /* Hide everything */
-  body > *:not(#receiptPrintArea):not(#quotePrintArea) {
+  /* Hide everything except print areas */
+  body > *:not(#receiptPrintArea):not(#quotePrintArea):not(#labelPreview) {
     display: none !important;
   }
 
-  /* Receipt — thermal 80mm */
+  /* Receipt — thermal (80mm default, 58mm via data attribute) */
   #receiptPrintArea {
     display: block !important;
     background: #fff;
@@ -107,6 +107,15 @@
     margin: 0;
     padding: 4mm;
   }
+  #receiptPrintArea.paper-58 .receipt {
+    width: 58mm;
+    max-width: 58mm;
+    padding: 2mm;
+  }
+  #receiptPrintArea.paper-58 .receipt .receipt-header .store-name { font-size: 13px; }
+  #receiptPrintArea.paper-58 .receipt .receipt-items td { font-size: 9px; }
+  #receiptPrintArea.paper-58 .receipt .receipt-totals { font-size: 9px; }
+  #receiptPrintArea.paper-58 .receipt .receipt-totals .grand-total { font-size: 13px; }
 
   /* Quote — A4 */
   #quotePrintArea {

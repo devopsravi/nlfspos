@@ -45,8 +45,8 @@
   <!-- App CSS -->
   <link rel="stylesheet" href="/static/css/main.css?v=13" />
   <link rel="stylesheet" href="/static/css/pos.css?v=16" />
-  <link rel="stylesheet" href="/static/css/labels.css?v=13" />
-  <link rel="stylesheet" href="/static/css/receipt.css?v=13" />
+  <link rel="stylesheet" href="/static/css/labels.css?v=14" />
+  <link rel="stylesheet" href="/static/css/receipt.css?v=14" />
 </head>
 <body class="bg-[#ecf0f1] text-gray-800 min-h-screen flex">
 
@@ -688,15 +688,30 @@
             <input id="labelSearch" type="text" placeholder="Search products for labels…"
               class="px-4 py-2 border border-gray-300 rounded-xl text-sm w-72 focus:ring-2 focus:ring-brand-500 focus:outline-none" />
             <select id="labelSize" class="px-3 py-2 border border-gray-300 rounded-xl text-sm">
-              <option value="3x2">3&quot; x 2&quot;</option>
-              <option value="4x2">4&quot; x 2&quot;</option>
-              <option value="2x1">2&quot; x 1&quot;</option>
+              <optgroup label="Small Labels">
+                <option value="38x25">38 x 25 mm</option>
+                <option value="50x25">50 x 25 mm</option>
+                <option value="2x1">2&quot; x 1&quot; (51 x 25 mm)</option>
+                <option value="50x30">50 x 30 mm</option>
+              </optgroup>
+              <optgroup label="Medium Labels">
+                <option value="75x50">75 x 50 mm</option>
+                <option value="3x2" selected>3&quot; x 2&quot; (76 x 51 mm)</option>
+              </optgroup>
+              <optgroup label="Large Labels">
+                <option value="100x50">100 x 50 mm</option>
+                <option value="4x2">4&quot; x 2&quot; (102 x 51 mm)</option>
+                <option value="4x6">4&quot; x 6&quot; Shipping</option>
+              </optgroup>
             </select>
           </div>
           <div class="flex gap-2">
             <button id="btnSelectAllLabels" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm hover:bg-gray-200">Select All</button>
+            <button id="btnPreviewLabels" class="bg-gray-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-600 disabled:opacity-50" disabled>
+              Preview
+            </button>
             <button id="btnPrintLabels" class="bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-brand-700 disabled:opacity-50" disabled>
-              Print Selected Labels
+              Print Labels
             </button>
           </div>
         </div>
@@ -1192,12 +1207,8 @@
                     <input name="cashier_name" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div>
-                    <label class="block text-xs text-gray-500 mb-1">Default Label Size</label>
-                    <select name="default_label_size" class="w-full border rounded-lg px-3 py-2 text-sm">
-                      <option value="2x1">2&quot; x 1&quot;</option>
-                      <option value="3x2">3&quot; x 2&quot;</option>
-                      <option value="4x2">4&quot; x 2&quot;</option>
-                    </select>
+                    <label class="block text-xs text-gray-500 mb-1">Receipt Prefix</label>
+                    <input name="receipt_prefix" type="text" placeholder="e.g. NLF-" class="w-full border rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div>
                     <label class="block text-xs text-gray-500 mb-1">UPI ID</label>
@@ -1219,6 +1230,150 @@
                   </button>
                 </div>
               </form>
+            </div>
+
+            <!-- ===== Thermal Printer Settings ===== -->
+            <div class="bg-white rounded-lg shadow-sm border mt-4">
+              <div class="bg-gray-700 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+                Thermal Printer
+              </div>
+              <div class="p-5 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Printer Mode</label>
+                    <select id="printerModeSelect" class="w-full border rounded-lg px-3 py-2 text-sm">
+                      <option value="browser">Browser Print (window.print)</option>
+                      <option value="usb">USB Thermal Printer (WebUSB)</option>
+                    </select>
+                    <p id="printerWebUsbWarning" class="text-[10px] text-amber-600 mt-1 hidden">WebUSB requires Chrome or Edge browser.</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Receipt Paper Width</label>
+                    <select id="receiptPaperWidth" class="w-full border rounded-lg px-3 py-2 text-sm">
+                      <option value="80">80 mm (Standard)</option>
+                      <option value="58">58 mm (Portable)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div id="printerUsbSection" class="hidden space-y-3">
+                  <div class="flex items-center gap-3">
+                    <button id="btnPairPrinter" type="button" class="bg-gray-600 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-gray-700 flex items-center gap-1.5">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                      Pair Printer
+                    </button>
+                    <button id="btnTestPrint" type="button" class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-blue-600 hidden flex items-center gap-1.5">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      Test Print
+                    </button>
+                    <button id="btnUnpairPrinter" type="button" class="text-red-500 hover:text-red-700 text-xs font-medium hidden">Unpair</button>
+                  </div>
+                  <div id="printerStatus" class="text-xs text-gray-500 flex items-center gap-1.5">
+                    <span id="printerStatusDot" class="w-2 h-2 rounded-full bg-gray-300 inline-block"></span>
+                    <span id="printerStatusText">No printer paired</span>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-4 pt-2">
+                    <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input type="checkbox" id="printerAutoPrint" class="rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+                      Auto-print after sale
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input type="checkbox" id="printerAutoCut" checked class="rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+                      Auto-cut paper
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input type="checkbox" id="printerCashDrawer" class="rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+                      Open cash drawer
+                    </label>
+                  </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                  <button id="btnSavePrinterSettings" type="button" class="bg-teal-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-teal-600 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                    Save Printer Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== Label Printer Settings ===== -->
+            <div class="bg-white rounded-lg shadow-sm border mt-4">
+              <div class="bg-indigo-600 text-white rounded-t-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 7h10M7 11h10m-6 4h2m-8 4h16a1 1 0 001-1V4a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
+                Label Printer
+              </div>
+              <div class="p-5 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Default Label Size</label>
+                    <select id="labelDefaultSize" class="w-full border rounded-lg px-3 py-2 text-sm">
+                      <optgroup label="Small Labels">
+                        <option value="38x25">38 x 25 mm</option>
+                        <option value="50x25">50 x 25 mm</option>
+                        <option value="2x1">2&quot; x 1&quot; (51 x 25 mm)</option>
+                        <option value="50x30">50 x 30 mm</option>
+                      </optgroup>
+                      <optgroup label="Medium Labels">
+                        <option value="75x50">75 x 50 mm</option>
+                        <option value="3x2" selected>3&quot; x 2&quot; (76 x 51 mm)</option>
+                      </optgroup>
+                      <optgroup label="Large Labels">
+                        <option value="100x50">100 x 50 mm</option>
+                        <option value="4x2">4&quot; x 2&quot; (102 x 51 mm)</option>
+                        <option value="4x6">4&quot; x 6&quot; Shipping</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Printer Mode</label>
+                    <select id="labelPrinterModeSelect" class="w-full border rounded-lg px-3 py-2 text-sm">
+                      <option value="browser">Browser Print (window.print)</option>
+                      <option value="usb">USB Label Printer (WebUSB)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div id="labelPrinterUsbSection" class="hidden space-y-3">
+                  <p id="labelPrinterWebUsbWarning" class="text-[10px] text-amber-600 hidden">WebUSB requires Chrome or Edge browser.</p>
+                  <div class="flex items-center gap-3">
+                    <button id="btnPairLabelPrinter" type="button" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-indigo-700 flex items-center gap-1.5">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                      Pair Label Printer
+                    </button>
+                    <button id="btnTestLabelPrint" type="button" class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-blue-600 hidden flex items-center gap-1.5">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      Test Print
+                    </button>
+                    <button id="btnUnpairLabelPrinter" type="button" class="text-red-500 hover:text-red-700 text-xs font-medium hidden">Unpair</button>
+                  </div>
+                  <div id="labelPrinterStatus" class="text-xs text-gray-500 flex items-center gap-1.5">
+                    <span id="labelPrinterStatusDot" class="w-2 h-2 rounded-full bg-gray-300 inline-block"></span>
+                    <span id="labelPrinterStatusText">No label printer paired</span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 pt-1">
+                  <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" id="labelAutoPrint" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                    Auto-print label after adding product
+                  </label>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                  <button id="btnSaveLabelPrinterSettings" type="button" class="bg-teal-500 text-white px-5 py-2 rounded-lg text-xs font-medium hover:bg-teal-600 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                    Save Label Settings
+                  </button>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-3 mt-2">
+                  <p class="text-[10px] text-gray-500 font-semibold mb-1">Compatible Label Printers</p>
+                  <p class="text-[10px] text-gray-400 leading-relaxed">TVS-E LP 46 Lite, Godex G500, Brother QL-800/820NWB, Zebra ZD220/ZD420, TSC TTP-244, Helett H30C, BIXOLON SLP-TX400 and most USB thermal label printers.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2191,14 +2346,15 @@
   <!-- JS Modules (v= cache-buster) -->
   <script src="/static/js/offline-store.js?v=14"></script>
   <script src="/static/js/scanner.js?v=14"></script>
-  <script src="/static/js/app.js?v=17"></script>
+  <script src="/static/js/app.js?v=18"></script>
   <script src="/static/js/inventory.js?v=20"></script>
-  <script src="/static/js/pos.js?v=21"></script>
-  <script src="/static/js/labels.js?v=14"></script>
+  <script src="/static/js/printer.js?v=1"></script>
+  <script src="/static/js/pos.js?v=23"></script>
+  <script src="/static/js/labels.js?v=15"></script>
   <script src="/static/js/sales.js?v=14"></script>
   <script src="/static/js/reports.js?v=14"></script>
   <script src="/static/js/transactions.js?v=14"></script>
-  <script src="/static/js/settings.js?v=15"></script>
+  <script src="/static/js/settings.js?v=16"></script>
   <script src="/static/js/suppliers.js?v=14"></script>
   <script src="/static/js/customers.js?v=14"></script>
   <script src="/static/js/orders.js?v=14"></script>

@@ -1010,6 +1010,15 @@ const POS = {
       App.toast('Sale completed!');
       this.showReceipt(data.sale);
 
+      // Silent thermal print if USB printer connected + auto-print enabled
+      if (Printer.getMode() === 'usb' && Printer.connected && Printer.isAutoPrint()) {
+        try {
+          await Printer.printReceipt(data.sale);
+        } catch (e) {
+          console.warn('[POS] Auto-print failed:', e.message);
+        }
+      }
+
       // Reset cart + clear localStorage
       this.cart = [];
       this.saveCart();
@@ -1344,7 +1353,7 @@ const POS = {
           <img src="/static/img/logo.svg" alt="NLF" style="width:64px;height:64px;margin:0 auto 6px;display:block;border-radius:10px;" />
           <div class="store-name">${esc(s.store_name || 'Store')}</div>
           <div class="store-info">${esc(s.address || '')}</div>
-          <div class="store-info">${esc(s.phone || '')} ${s.email ? '| ' + esc(s.email) : ''}</div>
+          <div class="store-info">${s.phone ? '&#9742; ' + esc(s.phone) : ''}${s.email ? ' &#9993; ' + esc(s.email) : ''}</div>
         </div>
         <hr class="receipt-divider" />
         <div class="receipt-meta">
@@ -1370,7 +1379,12 @@ const POS = {
         </div>
         <div class="receipt-barcode"><svg id="receiptBarcode"></svg></div>
         <hr class="receipt-divider" />
-        <div class="receipt-footer">${esc(s.receipt_footer || 'Thank you!')}</div>
+        ${(s.instagram_qr || s.google_qr) ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 6px;">
+          ${s.instagram_qr ? `<img src="${s.instagram_qr}" style="width:32px;height:32px;object-fit:contain;border-radius:4px;" />` : '<span></span>'}
+          <div class="receipt-footer" style="margin:0;flex:1;text-align:center;">${esc(s.receipt_footer || 'Thank you!')}</div>
+          ${s.google_qr ? `<img src="${s.google_qr}" style="width:32px;height:32px;object-fit:contain;border-radius:4px;" />` : '<span></span>'}
+        </div>` : `<div class="receipt-footer">${esc(s.receipt_footer || 'Thank you!')}</div>`}
       </div>
     `;
 
@@ -1385,9 +1399,19 @@ const POS = {
       } catch (e) { /* ignore */ }
     }, 50);
 
-    document.getElementById('btnPrintReceipt').onclick = () => {
+    document.getElementById('btnPrintReceipt').onclick = async () => {
+      if (Printer.getMode() === 'usb' && Printer.connected) {
+        try {
+          await Printer.printReceipt(sale);
+          App.toast('Receipt sent to printer');
+          return;
+        } catch (e) {
+          console.warn('[POS] Thermal print failed, falling back to browser print:', e.message);
+        }
+      }
       const printArea = document.getElementById('receiptPrintArea');
       printArea.innerHTML = html;
+      printArea.className = (App.settings.receipt_paper_width === '58') ? 'paper-58' : '';
       printArea.classList.remove('hidden');
       setTimeout(() => {
         window.print();

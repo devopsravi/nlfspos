@@ -102,6 +102,123 @@ const Settings = {
       const input = form.elements[key];
       if (input) input.value = s[key] ?? '';
     });
+    this._populatePrinterSettings();
+    this._populateLabelPrinterSettings();
+  },
+
+  /* ----- Printer settings ----- */
+  _populatePrinterSettings() {
+    const s = App.settings;
+    const modeSelect = document.getElementById('printerModeSelect');
+    if (!modeSelect) return;
+
+    modeSelect.value = s.printer_mode || 'browser';
+    this._togglePrinterUsbSection(modeSelect.value);
+
+    const paperWidth = document.getElementById('receiptPaperWidth');
+    if (paperWidth) paperWidth.value = s.receipt_paper_width || '80';
+
+    const autoPrint = document.getElementById('printerAutoPrint');
+    const autoCut = document.getElementById('printerAutoCut');
+    const cashDrawer = document.getElementById('printerCashDrawer');
+    if (autoPrint) autoPrint.checked = s.printer_auto_print === 'true';
+    if (autoCut) autoCut.checked = s.printer_auto_cut !== 'false';
+    if (cashDrawer) cashDrawer.checked = s.printer_cash_drawer === 'true';
+
+    this._updatePrinterStatus();
+  },
+
+  _togglePrinterUsbSection(mode) {
+    const section = document.getElementById('printerUsbSection');
+    const warning = document.getElementById('printerWebUsbWarning');
+    if (!section) return;
+
+    if (mode === 'usb') {
+      section.classList.remove('hidden');
+      if (warning && !Printer.isSupported()) warning.classList.remove('hidden');
+      else if (warning) warning.classList.add('hidden');
+    } else {
+      section.classList.add('hidden');
+      if (warning) warning.classList.add('hidden');
+    }
+  },
+
+  _updatePrinterStatus() {
+    const dot = document.getElementById('printerStatusDot');
+    const text = document.getElementById('printerStatusText');
+    const testBtn = document.getElementById('btnTestPrint');
+    const unpairBtn = document.getElementById('btnUnpairPrinter');
+    if (!dot || !text) return;
+
+    text.textContent = Printer.getStatusText();
+    if (Printer.connected) {
+      dot.className = 'w-2 h-2 rounded-full bg-green-500 inline-block';
+      if (testBtn) testBtn.classList.remove('hidden');
+      if (unpairBtn) unpairBtn.classList.remove('hidden');
+    } else if (Printer.getSavedDevice()) {
+      dot.className = 'w-2 h-2 rounded-full bg-amber-400 inline-block';
+      if (testBtn) testBtn.classList.add('hidden');
+      if (unpairBtn) unpairBtn.classList.remove('hidden');
+    } else {
+      dot.className = 'w-2 h-2 rounded-full bg-gray-300 inline-block';
+      if (testBtn) testBtn.classList.add('hidden');
+      if (unpairBtn) unpairBtn.classList.add('hidden');
+    }
+  },
+
+  /* ----- Label Printer settings ----- */
+  _populateLabelPrinterSettings() {
+    const s = App.settings;
+    const modeSelect = document.getElementById('labelPrinterModeSelect');
+    const sizeSelect = document.getElementById('labelDefaultSize');
+    if (!modeSelect) return;
+
+    modeSelect.value = s.label_printer_mode || 'browser';
+    if (sizeSelect) sizeSelect.value = s.default_label_size || '3x2';
+    this._toggleLabelPrinterUsbSection(modeSelect.value);
+
+    const autoPrint = document.getElementById('labelAutoPrint');
+    if (autoPrint) autoPrint.checked = s.label_auto_print === 'true';
+
+    this._updateLabelPrinterStatus();
+  },
+
+  _toggleLabelPrinterUsbSection(mode) {
+    const section = document.getElementById('labelPrinterUsbSection');
+    const warning = document.getElementById('labelPrinterWebUsbWarning');
+    if (!section) return;
+
+    if (mode === 'usb') {
+      section.classList.remove('hidden');
+      if (warning && typeof LabelPrinter !== 'undefined' && !LabelPrinter.isSupported()) warning.classList.remove('hidden');
+      else if (warning) warning.classList.add('hidden');
+    } else {
+      section.classList.add('hidden');
+      if (warning) warning.classList.add('hidden');
+    }
+  },
+
+  _updateLabelPrinterStatus() {
+    const dot = document.getElementById('labelPrinterStatusDot');
+    const text = document.getElementById('labelPrinterStatusText');
+    const testBtn = document.getElementById('btnTestLabelPrint');
+    const unpairBtn = document.getElementById('btnUnpairLabelPrinter');
+    if (!dot || !text || typeof LabelPrinter === 'undefined') return;
+
+    text.textContent = LabelPrinter.getStatusText();
+    if (LabelPrinter.connected) {
+      dot.className = 'w-2 h-2 rounded-full bg-green-500 inline-block';
+      if (testBtn) testBtn.classList.remove('hidden');
+      if (unpairBtn) unpairBtn.classList.remove('hidden');
+    } else if (LabelPrinter.getSavedDevice()) {
+      dot.className = 'w-2 h-2 rounded-full bg-amber-400 inline-block';
+      if (testBtn) testBtn.classList.add('hidden');
+      if (unpairBtn) unpairBtn.classList.remove('hidden');
+    } else {
+      dot.className = 'w-2 h-2 rounded-full bg-gray-300 inline-block';
+      if (testBtn) testBtn.classList.add('hidden');
+      if (unpairBtn) unpairBtn.classList.add('hidden');
+    }
   },
 
   /* ----- Users ----- */
@@ -332,5 +449,137 @@ const Settings = {
         App.toast('POS settings saved');
       } catch (err) { App.toast('Failed to save settings'); }
     };
+
+    // Printer mode toggle
+    const printerModeSelect = document.getElementById('printerModeSelect');
+    if (printerModeSelect) {
+      printerModeSelect.onchange = () => this._togglePrinterUsbSection(printerModeSelect.value);
+    }
+
+    // Pair printer button
+    const btnPair = document.getElementById('btnPairPrinter');
+    if (btnPair) {
+      btnPair.onclick = async () => {
+        try {
+          await Printer.requestDevice();
+          App.toast('Printer paired successfully!');
+          this._updatePrinterStatus();
+        } catch (e) {
+          if (e.name !== 'NotFoundError') {
+            App.toast(e.message || 'Failed to pair printer');
+          }
+        }
+      };
+    }
+
+    // Test print button
+    const btnTest = document.getElementById('btnTestPrint');
+    if (btnTest) {
+      btnTest.onclick = async () => {
+        try {
+          await Printer.testPrint();
+          App.toast('Test print sent!');
+        } catch (e) {
+          App.toast('Print failed: ' + (e.message || 'Unknown error'));
+        }
+      };
+    }
+
+    // Unpair printer button
+    const btnUnpair = document.getElementById('btnUnpairPrinter');
+    if (btnUnpair) {
+      btnUnpair.onclick = async () => {
+        await Printer.disconnect();
+        Printer.clearSavedDevice();
+        App.toast('Printer unpaired');
+        this._updatePrinterStatus();
+      };
+    }
+
+    // Save printer settings
+    const btnSavePrinter = document.getElementById('btnSavePrinterSettings');
+    if (btnSavePrinter) {
+      btnSavePrinter.onclick = async () => {
+        const mode = document.getElementById('printerModeSelect')?.value || 'browser';
+        const paperWidth = document.getElementById('receiptPaperWidth')?.value || '80';
+        const autoPrint = document.getElementById('printerAutoPrint')?.checked ? 'true' : 'false';
+        const autoCut = document.getElementById('printerAutoCut')?.checked ? 'true' : 'false';
+        const cashDrawer = document.getElementById('printerCashDrawer')?.checked ? 'true' : 'false';
+
+        const data = {
+          ...App.settings,
+          printer_mode: mode,
+          receipt_paper_width: paperWidth,
+          printer_auto_print: autoPrint,
+          printer_auto_cut: autoCut,
+          printer_cash_drawer: cashDrawer,
+        };
+        try {
+          await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+          App.settings = data;
+          App.toast('Printer settings saved');
+        } catch (e) { App.toast('Failed to save printer settings'); }
+      };
+    }
+
+    // --- Label Printer bindings ---
+    const labelModeSelect = document.getElementById('labelPrinterModeSelect');
+    if (labelModeSelect) {
+      labelModeSelect.onchange = () => this._toggleLabelPrinterUsbSection(labelModeSelect.value);
+    }
+
+    const btnPairLabel = document.getElementById('btnPairLabelPrinter');
+    if (btnPairLabel) {
+      btnPairLabel.onclick = async () => {
+        try {
+          await LabelPrinter.requestDevice();
+          App.toast('Label printer paired!');
+          this._updateLabelPrinterStatus();
+        } catch (e) {
+          if (e.name !== 'NotFoundError') App.toast(e.message || 'Failed to pair');
+        }
+      };
+    }
+
+    const btnTestLabel = document.getElementById('btnTestLabelPrint');
+    if (btnTestLabel) {
+      btnTestLabel.onclick = async () => {
+        try {
+          await LabelPrinter.testPrint();
+          App.toast('Test label sent!');
+        } catch (e) { App.toast('Print failed: ' + (e.message || 'Unknown error')); }
+      };
+    }
+
+    const btnUnpairLabel = document.getElementById('btnUnpairLabelPrinter');
+    if (btnUnpairLabel) {
+      btnUnpairLabel.onclick = async () => {
+        await LabelPrinter.disconnect();
+        LabelPrinter.clearSavedDevice();
+        App.toast('Label printer unpaired');
+        this._updateLabelPrinterStatus();
+      };
+    }
+
+    const btnSaveLabel = document.getElementById('btnSaveLabelPrinterSettings');
+    if (btnSaveLabel) {
+      btnSaveLabel.onclick = async () => {
+        const mode = document.getElementById('labelPrinterModeSelect')?.value || 'browser';
+        const size = document.getElementById('labelDefaultSize')?.value || '3x2';
+        const autoPrint = document.getElementById('labelAutoPrint')?.checked ? 'true' : 'false';
+
+        const data = {
+          ...App.settings,
+          label_printer_mode: mode,
+          default_label_size: size,
+          label_auto_print: autoPrint,
+        };
+        try {
+          await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+          App.settings = data;
+          App.toast('Label printer settings saved');
+        } catch (e) { App.toast('Failed to save label settings'); }
+      };
+    }
   },
 };

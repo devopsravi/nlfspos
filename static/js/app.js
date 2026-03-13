@@ -55,6 +55,26 @@ const App = {
     this.setupDarkMode();
     this.setupModals();
     this.updateHeader();
+    // Thermal printer: setup USB listeners + auto-reconnect (non-blocking)
+    if (typeof Printer !== 'undefined' && Printer.isSupported()) {
+      Printer.setupUsbListeners();
+      if (this.settings.printer_mode === 'usb') {
+        Printer.autoReconnect().then(ok => {
+          if (ok) console.log('[App] Thermal printer reconnected');
+        }).catch(() => {});
+      }
+    }
+
+    // Label printer: setup USB listeners + auto-reconnect (non-blocking)
+    if (typeof LabelPrinter !== 'undefined' && LabelPrinter.isSupported()) {
+      LabelPrinter.setupUsbListeners();
+      if (this.settings.label_printer_mode === 'usb') {
+        LabelPrinter.autoReconnect().then(ok => {
+          if (ok) console.log('[App] Label printer reconnected');
+        }).catch(() => {});
+      }
+    }
+
     // Initialize barcode scanner
     if (typeof BarcodeScanner !== 'undefined') BarcodeScanner.init();
 

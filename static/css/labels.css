@@ -52,7 +52,35 @@
   break-inside: avoid;
 }
 
-/* Label sizes */
+/* ---- Label sizes ---- */
+
+/* 38mm x 25mm — small jewellery/accessory tags (Brother DK-11209, generic) */
+.print-label.size-38x25 {
+  width: 38mm;
+  height: 25mm;
+  padding: 2px 3px;
+}
+.print-label.size-38x25 .label-store  { font-size: 5px; }
+.print-label.size-38x25 .label-name   { font-size: 6px; font-weight: 700; }
+.print-label.size-38x25 .label-price  { font-size: 10px; font-weight: 800; }
+.print-label.size-38x25 .label-sku    { font-size: 5px; }
+.print-label.size-38x25 .label-meta   { display: none; }
+.print-label.size-38x25 svg.barcode   { max-width: 90%; height: 14px; }
+
+/* 50mm x 25mm — standard retail price tags (Godex, TSC, generic thermal) */
+.print-label.size-50x25 {
+  width: 50mm;
+  height: 25mm;
+  padding: 3px 4px;
+}
+.print-label.size-50x25 .label-store  { font-size: 5px; }
+.print-label.size-50x25 .label-name   { font-size: 7px; font-weight: 700; }
+.print-label.size-50x25 .label-price  { font-size: 12px; font-weight: 800; }
+.print-label.size-50x25 .label-sku    { font-size: 5px; }
+.print-label.size-50x25 .label-meta   { font-size: 4px; }
+.print-label.size-50x25 svg.barcode   { max-width: 85%; height: 16px; }
+
+/* 2" x 1" (≈51mm x 25mm) — DYMO 30336, Brother DK-11204 */
 .print-label.size-2x1 {
   width: 2in;
   height: 1in;
@@ -65,6 +93,33 @@
 .print-label.size-2x1 .label-meta   { font-size: 5px; }
 .print-label.size-2x1 svg.barcode   { max-width: 80%; height: 18px; }
 
+/* 50mm x 30mm — common thermal barcode label (TVS-E, Zebra, generic) */
+.print-label.size-50x30 {
+  width: 50mm;
+  height: 30mm;
+  padding: 4px 5px;
+}
+.print-label.size-50x30 .label-store  { font-size: 6px; }
+.print-label.size-50x30 .label-name   { font-size: 8px; font-weight: 700; }
+.print-label.size-50x30 .label-price  { font-size: 14px; font-weight: 800; }
+.print-label.size-50x30 .label-sku    { font-size: 6px; }
+.print-label.size-50x30 .label-meta   { font-size: 5px; }
+.print-label.size-50x30 svg.barcode   { max-width: 85%; height: 18px; }
+
+/* 75mm x 50mm — medium product label (Zebra ZD220, Godex G500) */
+.print-label.size-75x50 {
+  width: 75mm;
+  height: 50mm;
+  padding: 6px 8px;
+}
+.print-label.size-75x50 .label-store  { font-size: 7px; }
+.print-label.size-75x50 .label-name   { font-size: 10px; font-weight: 700; }
+.print-label.size-75x50 .label-price  { font-size: 18px; font-weight: 800; }
+.print-label.size-75x50 .label-sku    { font-size: 7px; }
+.print-label.size-75x50 .label-meta   { font-size: 6px; }
+.print-label.size-75x50 svg.barcode   { max-width: 90%; height: 26px; }
+
+/* 3" x 2" (≈76mm x 51mm) — Brother DK, DYMO 30324 */
 .print-label.size-3x2 {
   width: 3in;
   height: 2in;
@@ -77,6 +132,20 @@
 .print-label.size-3x2 .label-meta   { font-size: 7px; }
 .print-label.size-3x2 svg.barcode   { max-width: 90%; height: 30px; }
 
+/* 100mm x 50mm — large product / shelf label (Zebra, TSC, BIXOLON) */
+.print-label.size-100x50 {
+  width: 100mm;
+  height: 50mm;
+  padding: 8px 10px;
+}
+.print-label.size-100x50 .label-store  { font-size: 8px; }
+.print-label.size-100x50 .label-name   { font-size: 12px; font-weight: 700; }
+.print-label.size-100x50 .label-price  { font-size: 24px; font-weight: 800; }
+.print-label.size-100x50 .label-sku    { font-size: 8px; }
+.print-label.size-100x50 .label-meta   { font-size: 7px; }
+.print-label.size-100x50 svg.barcode   { max-width: 90%; height: 32px; }
+
+/* 4" x 2" (≈102mm x 51mm) — large retail label */
 .print-label.size-4x2 {
   width: 4in;
   height: 2in;
@@ -88,6 +157,19 @@
 .print-label.size-4x2 .label-sku    { font-size: 9px; }
 .print-label.size-4x2 .label-meta   { font-size: 8px; }
 .print-label.size-4x2 svg.barcode   { max-width: 90%; height: 36px; }
+
+/* 4" x 6" (≈102mm x 152mm) — shipping label (Helett H30C, Zebra ZD420) */
+.print-label.size-4x6 {
+  width: 4in;
+  height: 6in;
+  padding: 14px 18px;
+}
+.print-label.size-4x6 .label-store  { font-size: 11px; }
+.print-label.size-4x6 .label-name   { font-size: 16px; font-weight: 700; }
+.print-label.size-4x6 .label-price  { font-size: 32px; font-weight: 800; }
+.print-label.size-4x6 .label-sku    { font-size: 11px; }
+.print-label.size-4x6 .label-meta   { font-size: 10px; }
+.print-label.size-4x6 svg.barcode   { max-width: 80%; height: 50px; }
 
 /* Print media */
 @media print {
