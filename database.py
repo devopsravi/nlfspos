@@ -305,6 +305,7 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS inventory (
     sku TEXT PRIMARY KEY,
     barcode TEXT DEFAULT '',
+    hsn_code TEXT DEFAULT '',
     name TEXT NOT NULL,
     category TEXT DEFAULT '',
     brand TEXT DEFAULT '',
@@ -330,6 +331,8 @@ CREATE TABLE IF NOT EXISTS sales (
     subtotal REAL DEFAULT 0,
     discount_amount REAL DEFAULT 0,
     tax_amount REAL DEFAULT 0,
+    cgst_amount REAL DEFAULT 0,
+    sgst_amount REAL DEFAULT 0,
     grand_total REAL DEFAULT 0,
     payment_method TEXT DEFAULT '',
     cashier TEXT DEFAULT '',
@@ -347,6 +350,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
     sale_id INTEGER NOT NULL,
     sku TEXT NOT NULL,
     name TEXT NOT NULL,
+    hsn_code TEXT DEFAULT '',
     quantity INTEGER DEFAULT 1,
     unit_price REAL DEFAULT 0,
     line_total REAL DEFAULT 0,
@@ -477,6 +481,7 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS inventory (
     sku TEXT PRIMARY KEY,
     barcode TEXT DEFAULT '',
+    hsn_code TEXT DEFAULT '',
     name TEXT NOT NULL,
     category TEXT DEFAULT '',
     brand TEXT DEFAULT '',
@@ -502,6 +507,8 @@ CREATE TABLE IF NOT EXISTS sales (
     subtotal DOUBLE PRECISION DEFAULT 0,
     discount_amount DOUBLE PRECISION DEFAULT 0,
     tax_amount DOUBLE PRECISION DEFAULT 0,
+    cgst_amount DOUBLE PRECISION DEFAULT 0,
+    sgst_amount DOUBLE PRECISION DEFAULT 0,
     grand_total DOUBLE PRECISION DEFAULT 0,
     payment_method TEXT DEFAULT '',
     cashier TEXT DEFAULT '',
@@ -519,6 +526,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
     sale_id INTEGER NOT NULL,
     sku TEXT NOT NULL,
     name TEXT NOT NULL,
+    hsn_code TEXT DEFAULT '',
     quantity INTEGER DEFAULT 1,
     unit_price DOUBLE PRECISION DEFAULT 0,
     line_total DOUBLE PRECISION DEFAULT 0,
@@ -696,6 +704,25 @@ def _run_sqlite_migrations(conn):
         conn.execute("ALTER TABLE inventory ADD COLUMN barcode TEXT DEFAULT ''")
         print("[DB] Migration: added column inventory.barcode")
 
+    # Migration: add hsn_code column to inventory
+    if 'hsn_code' not in inv_cols:
+        conn.execute("ALTER TABLE inventory ADD COLUMN hsn_code TEXT DEFAULT ''")
+        print("[DB] Migration: added column inventory.hsn_code")
+
+    # Migration: add hsn_code to sale_items
+    si_cols = {row[1] for row in conn.execute("PRAGMA table_info(sale_items)").fetchall()}
+    if 'hsn_code' not in si_cols:
+        conn.execute("ALTER TABLE sale_items ADD COLUMN hsn_code TEXT DEFAULT ''")
+        print("[DB] Migration: added column sale_items.hsn_code")
+
+    # Migration: add cgst_amount and sgst_amount to sales
+    if 'cgst_amount' not in cols:
+        conn.execute("ALTER TABLE sales ADD COLUMN cgst_amount REAL DEFAULT 0")
+        print("[DB] Migration: added column sales.cgst_amount")
+    if 'sgst_amount' not in cols:
+        conn.execute("ALTER TABLE sales ADD COLUMN sgst_amount REAL DEFAULT 0")
+        print("[DB] Migration: added column sales.sgst_amount")
+
     # Collect all existing barcodes to avoid duplicates
     existing_barcodes = {r[0] for r in conn.execute(
         "SELECT barcode FROM inventory WHERE barcode IS NOT NULL AND barcode != ''"
@@ -831,6 +858,35 @@ def _run_pg_migrations(conn):
         cur.execute("ALTER TABLE inventory ADD COLUMN barcode TEXT DEFAULT ''")
         conn._conn.commit()
         print("[DB] PG Migration: added column inventory.barcode")
+
+    # Migration: add hsn_code column to inventory
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'inventory' AND column_name = 'hsn_code'
+    """)
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE inventory ADD COLUMN hsn_code TEXT DEFAULT ''")
+        conn._conn.commit()
+        print("[DB] PG Migration: added column inventory.hsn_code")
+
+    # Migration: add hsn_code to sale_items
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'sale_items' AND column_name = 'hsn_code'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE sale_items ADD COLUMN hsn_code TEXT DEFAULT ''")
+        conn._conn.commit()
+        print("[DB] PG Migration: added column sale_items.hsn_code")
+
+    # Migration: add cgst_amount and sgst_amount to sales
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'sales' AND column_name = 'cgst_amount'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE sales ADD COLUMN cgst_amount DOUBLE PRECISION DEFAULT 0")
+        conn._conn.commit()
+        print("[DB] PG Migration: added column sales.cgst_amount")
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'sales' AND column_name = 'sgst_amount'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE sales ADD COLUMN sgst_amount DOUBLE PRECISION DEFAULT 0")
+        conn._conn.commit()
+        print("[DB] PG Migration: added column sales.sgst_amount")
 
     # Collect existing barcodes to avoid duplicates
     cur.execute("SELECT barcode FROM inventory WHERE barcode IS NOT NULL AND barcode != ''")
@@ -1016,11 +1072,12 @@ def migrate_from_json():
             try:
                 conn.execute(
                     """INSERT OR IGNORE INTO inventory
-                    (sku, name, category, brand, description, cost_price, selling_price,
+                    (sku, barcode, hsn_code, name, category, brand, description, cost_price, selling_price,
                      quantity, reorder_level, dimensions, weight, color, image_path,
                      supplier, date_added, last_updated)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (sku, p["name"], p.get("category", ""), p.get("brand", ""),
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (sku, p.get("barcode", ""), p.get("hsn_code", ""),
+                     p["name"], p.get("category", ""), p.get("brand", ""),
                      p.get("description", ""), float(p.get("cost_price", 0)),
                      float(p.get("selling_price", 0)), int(p.get("quantity", 0)),
                      int(p.get("reorder_level", 3)), p.get("dimensions", ""),
@@ -1043,13 +1100,15 @@ def migrate_from_json():
                 cursor = conn.execute(
                     """INSERT INTO sales
                     (receipt_number, timestamp, date, subtotal, discount_amount,
-                     tax_amount, grand_total, payment_method, cashier,
+                     tax_amount, cgst_amount, sgst_amount, grand_total, payment_method, cashier,
                      customer_name, customer_phone, customer_email)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (s["receipt_number"], s.get("timestamp", ""),
                      s.get("date", ""), float(s.get("subtotal", 0)),
                      float(s.get("discount_amount", 0)),
                      float(s.get("tax_amount", 0)),
+                     float(s.get("cgst_amount", 0)),
+                     float(s.get("sgst_amount", 0)),
                      float(s.get("grand_total", 0)),
                      s.get("payment_method", ""),
                      s.get("cashier", ""),
@@ -1061,10 +1120,10 @@ def migrate_from_json():
                 for item in s.get("items", []):
                     conn.execute(
                         """INSERT INTO sale_items
-                        (sale_id, sku, name, quantity, unit_price, line_total,
+                        (sale_id, sku, name, hsn_code, quantity, unit_price, line_total,
                          discount_type, discount_value, discount_amount, final_total)
-                        VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                        (sale_id, item.get("sku", ""), item.get("name", ""),
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                        (sale_id, item.get("sku", ""), item.get("name", ""), item.get("hsn_code", ""),
                          int(item.get("quantity", 1)),
                          float(item.get("unit_price", 0)),
                          float(item.get("line_total", 0)),
@@ -1229,10 +1288,10 @@ def import_all_data(data):
         _used_skus.add(sku)
         try:
             conn.execute(
-                "INSERT OR IGNORE INTO inventory (sku, name, category, brand, description, cost_price, selling_price, "
+                "INSERT OR IGNORE INTO inventory (sku, hsn_code, name, category, brand, description, cost_price, selling_price, "
                 "quantity, reorder_level, dimensions, weight, color, image_path, supplier, date_added, last_updated) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (sku, p["name"], p.get("category", ""), p.get("brand", ""),
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (sku, p.get("hsn_code", ""), p["name"], p.get("category", ""), p.get("brand", ""),
                  p.get("description", ""), float(p.get("cost_price", 0)),
                  float(p.get("selling_price", 0)), int(p.get("quantity", 0)),
                  int(p.get("reorder_level", 3)), p.get("dimensions", ""),
@@ -1283,12 +1342,13 @@ def import_all_data(data):
         try:
             cursor = conn.execute(
                 "INSERT INTO sales (receipt_number, timestamp, date, subtotal, discount_amount, "
-                "tax_amount, grand_total, payment_method, cashier, customer_name, customer_phone, "
+                "tax_amount, cgst_amount, sgst_amount, grand_total, payment_method, cashier, customer_name, customer_phone, "
                 "customer_email, status, voided_at, voided_by, void_reason) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (s["receipt_number"], s.get("timestamp", ""), s.get("date", ""),
                  float(s.get("subtotal", 0)), float(s.get("discount_amount", 0)),
-                 float(s.get("tax_amount", 0)), float(s.get("grand_total", 0)),
+                 float(s.get("tax_amount", 0)), float(s.get("cgst_amount", 0)),
+                 float(s.get("sgst_amount", 0)), float(s.get("grand_total", 0)),
                  s.get("payment_method", ""), s.get("cashier", ""),
                  s.get("customer_name", ""), s.get("customer_phone", ""),
                  s.get("customer_email", ""), s.get("status", "Complete"),
@@ -1298,10 +1358,10 @@ def import_all_data(data):
             if sale_id:
                 for item in s.get("items", []):
                     conn.execute(
-                        "INSERT INTO sale_items (sale_id, sku, name, quantity, unit_price, line_total, "
+                        "INSERT INTO sale_items (sale_id, sku, name, hsn_code, quantity, unit_price, line_total, "
                         "discount_type, discount_value, discount_amount, final_total) "
-                        "VALUES (?,?,?,?,?,?,?,?,?,?)",
-                        (sale_id, item.get("sku", ""), item.get("name", ""),
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (sale_id, item.get("sku", ""), item.get("name", ""), item.get("hsn_code", ""),
                          int(item.get("quantity", 1)), float(item.get("unit_price", 0)),
                          float(item.get("line_total", 0)), item.get("discount_type", "none"),
                          float(item.get("discount_value", 0)), float(item.get("discount_amount", 0)),

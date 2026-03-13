@@ -261,8 +261,9 @@
                     <span id="cartDiscount" class="font-semibold text-red-500">-₹0.00</span>
                   </div>
                   <div id="cartDiscountRow" style="display:none"></div>
-                  <div class="flex justify-between py-0.5"><span class="text-gray-500 font-medium">Subtotal:</span><span id="cartSubtotal" class="font-semibold">₹0.00</span></div>
-                  <div class="flex justify-between py-0.5"><span class="text-gray-500 font-medium" id="taxLabel">GST (18%):</span><span id="cartTax" class="font-semibold">₹0.00</span></div>
+                  <div class="flex justify-between py-0.5"><span class="text-gray-500 font-medium">Taxable Value:</span><span id="cartTaxableValue" class="font-semibold">₹0.00</span></div>
+                  <div class="flex justify-between py-0.5"><span class="text-gray-500 font-medium" id="cgstLabel">CGST (9%):</span><span id="cartCGST" class="font-semibold">₹0.00</span></div>
+                  <div class="flex justify-between py-0.5"><span class="text-gray-500 font-medium" id="sgstLabel">SGST (9%):</span><span id="cartSGST" class="font-semibold">₹0.00</span></div>
                   <div class="flex justify-between py-1 border-t mt-1 pt-1"><span class="text-gray-800 font-bold text-base">Total:</span><span id="cartTotal" class="font-bold text-teal-600 text-base">₹0.00</span></div>
                 </div>
               </div>
@@ -368,6 +369,7 @@
             <thead class="bg-teal-600 text-white text-xs uppercase tracking-wide">
               <tr>
                 <th class="inv-th" style="width:120px;">Stockcode<div class="resizer"></div></th>
+                <th class="inv-th" style="width:90px;">HSN Code<div class="resizer"></div></th>
                 <th class="inv-th" style="width:220px;">Name<div class="resizer"></div></th>
                 <th class="inv-th" style="width:110px;">Category<div class="resizer"></div></th>
                 <th class="inv-th text-right" style="width:80px;">Qty On Hand<div class="resizer"></div></th>
@@ -381,7 +383,7 @@
               </tr>
             </thead>
             <tbody id="invTableBody" class="divide-y">
-              <tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">No products found</td></tr>
+              <tr><td colspan="12" class="px-4 py-8 text-center text-gray-400">No products found</td></tr>
             </tbody>
           </table>
         </div>
@@ -403,6 +405,10 @@
                 <div>
                   <label class="block text-xs text-gray-500 mb-1">Product Name *</label>
                   <input name="name" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">HSN Code *</label>
+                  <input name="hsn_code" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. 9403" />
                 </div>
                 <div>
                   <label class="block text-xs text-gray-500 mb-1">Category *</label>
@@ -2076,19 +2082,19 @@
   </div>
 
   <!-- JS Modules (v= cache-buster) -->
-  <script src="/static/js/offline-store.js?v=13"></script>
-  <script src="/static/js/scanner.js?v=13"></script>
-  <script src="/static/js/app.js?v=13"></script>
-  <script src="/static/js/inventory.js?v=13"></script>
-  <script src="/static/js/pos.js?v=13"></script>
-  <script src="/static/js/labels.js?v=13"></script>
-  <script src="/static/js/sales.js?v=13"></script>
-  <script src="/static/js/reports.js?v=13"></script>
-  <script src="/static/js/transactions.js?v=13"></script>
-  <script src="/static/js/settings.js?v=13"></script>
-  <script src="/static/js/suppliers.js?v=13"></script>
-  <script src="/static/js/customers.js?v=13"></script>
-  <script src="/static/js/orders.js?v=13"></script>
+  <script src="/static/js/offline-store.js?v=14"></script>
+  <script src="/static/js/scanner.js?v=14"></script>
+  <script src="/static/js/app.js?v=14"></script>
+  <script src="/static/js/inventory.js?v=19"></script>
+  <script src="/static/js/pos.js?v=17"></script>
+  <script src="/static/js/labels.js?v=14"></script>
+  <script src="/static/js/sales.js?v=14"></script>
+  <script src="/static/js/reports.js?v=14"></script>
+  <script src="/static/js/transactions.js?v=14"></script>
+  <script src="/static/js/settings.js?v=14"></script>
+  <script src="/static/js/suppliers.js?v=14"></script>
+  <script src="/static/js/customers.js?v=14"></script>
+  <script src="/static/js/orders.js?v=14"></script>
 
   <!-- Barcode Scanner Modal (shared by POS & Inventory) -->
   <div id="scannerModal" class="hidden fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">

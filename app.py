@@ -389,9 +389,9 @@ def get_inventory():
     params = []
 
     if q:
-        sql += " AND (LOWER(name) LIKE ? OR LOWER(sku) LIKE ? OR LOWER(brand) LIKE ? OR LOWER(description) LIKE ? OR LOWER(barcode) LIKE ?)"
+        sql += " AND (LOWER(name) LIKE ? OR LOWER(sku) LIKE ? OR LOWER(brand) LIKE ? OR LOWER(description) LIKE ? OR LOWER(barcode) LIKE ? OR LOWER(hsn_code) LIKE ?)"
         like = f"%{q}%"
-        params.extend([like, like, like, like, like])
+        params.extend([like, like, like, like, like, like])
 
     if category:
         sql += " AND category = ?"
@@ -450,11 +450,12 @@ def add_product():
 
     db().execute(
         """INSERT INTO inventory
-        (sku, barcode, name, category, brand, description, cost_price, selling_price,
+        (sku, barcode, hsn_code, name, category, brand, description, cost_price, selling_price,
          quantity, reorder_level, dimensions, weight, color, image_path,
          supplier, date_added, last_updated)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (product["sku"], product.get("barcode", ""), product.get("name", ""), product.get("category", ""),
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (product["sku"], product.get("barcode", ""), product.get("hsn_code", ""),
+         product.get("name", ""), product.get("category", ""),
          product.get("brand", ""), product.get("description", ""),
          float(product.get("cost_price", 0)), float(product.get("selling_price", 0)),
          int(product.get("quantity", 0)), int(product.get("reorder_level", 3)),
@@ -502,7 +503,7 @@ def update_product(sku):
         """UPDATE inventory SET
         name=?, category=?, brand=?, description=?, cost_price=?, selling_price=?,
         quantity=?, reorder_level=?, dimensions=?, weight=?, color=?, image_path=?,
-        supplier=?, barcode=?, last_updated=?
+        supplier=?, barcode=?, hsn_code=?, last_updated=?
         WHERE sku=?""",
         (data.get("name", original["name"]),
          data.get("category", original["category"]),
@@ -516,6 +517,7 @@ def update_product(sku):
          data.get("image_path", original["image_path"]),
          data.get("supplier", original["supplier"]),
          data.get("barcode", original.get("barcode", "")),
+         data.get("hsn_code", original.get("hsn_code", "")),
          today, sku)
     )
 
@@ -652,11 +654,12 @@ def import_inventory_csv():
         try:
             conn.execute(
                 """INSERT INTO inventory
-                (sku, barcode, name, category, brand, description, cost_price, selling_price,
+                (sku, barcode, hsn_code, name, category, brand, description, cost_price, selling_price,
                  quantity, reorder_level, dimensions, weight, color, image_path,
                  supplier, date_added, last_updated)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (sku, barcode, row.get("name", ""), row.get("category", ""),
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (sku, barcode, row.get("hsn_code", ""),
+                 row.get("name", ""), row.get("category", ""),
                  row.get("brand", ""), row.get("description", ""),
                  float(row.get("cost_price", 0)),
                  float(row.get("selling_price", 0)),
@@ -939,13 +942,15 @@ def create_sale():
     cursor = conn.execute(
         """INSERT INTO sales
         (receipt_number, timestamp, date, subtotal, discount_amount,
-         tax_amount, grand_total, payment_method, cashier,
+         tax_amount, cgst_amount, sgst_amount, grand_total, payment_method, cashier,
          customer_name, customer_phone, customer_email)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (receipt_number, timestamp, sale_date,
          float(sale.get("subtotal", 0)),
          float(sale.get("discount_amount", 0)),
          float(sale.get("tax_amount", 0)),
+         float(sale.get("cgst_amount", 0)),
+         float(sale.get("sgst_amount", 0)),
          float(sale.get("grand_total", 0)),
          sale.get("payment_method", ""),
          sale.get("cashier", ""),
@@ -963,10 +968,10 @@ def create_sale():
 
         conn.execute(
             """INSERT INTO sale_items
-            (sale_id, sku, name, quantity, unit_price, line_total,
+            (sale_id, sku, name, hsn_code, quantity, unit_price, line_total,
              discount_type, discount_value, discount_amount, final_total)
-            VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (sale_id, sku, line.get("name", ""),
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (sale_id, sku, line.get("name", ""), line.get("hsn_code", ""),
              qty, float(line.get("unit_price", 0)),
              float(line.get("line_total", 0)),
              line.get("discount_type", "none"),
@@ -1021,6 +1026,8 @@ def create_sale():
         "subtotal": sale.get("subtotal", 0),
         "discount_amount": sale.get("discount_amount", 0),
         "tax_amount": sale.get("tax_amount", 0),
+        "cgst_amount": sale.get("cgst_amount", 0),
+        "sgst_amount": sale.get("sgst_amount", 0),
         "grand_total": sale.get("grand_total", 0),
         "payment_method": sale.get("payment_method", ""),
         "cashier": sale.get("cashier", ""),
@@ -1077,13 +1084,15 @@ def batch_create_sales():
             cursor = conn.execute(
                 """INSERT INTO sales
                 (receipt_number, timestamp, date, subtotal, discount_amount,
-                 tax_amount, grand_total, payment_method, cashier,
+                 tax_amount, cgst_amount, sgst_amount, grand_total, payment_method, cashier,
                  customer_name, customer_phone, customer_email)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (receipt_number, timestamp, sale_date,
                  float(sale.get("subtotal", 0)),
                  float(sale.get("discount_amount", 0)),
                  float(sale.get("tax_amount", 0)),
+                 float(sale.get("cgst_amount", 0)),
+                 float(sale.get("sgst_amount", 0)),
                  float(sale.get("grand_total", 0)),
                  sale.get("payment_method", ""),
                  sale.get("cashier", ""),
@@ -1099,10 +1108,10 @@ def batch_create_sales():
                 qty = line.get("quantity", 1)
                 conn.execute(
                     """INSERT INTO sale_items
-                    (sale_id, sku, name, quantity, unit_price, line_total,
+                    (sale_id, sku, name, hsn_code, quantity, unit_price, line_total,
                      discount_type, discount_value, discount_amount, final_total)
-                    VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                    (sale_id, sku, line.get("name", ""),
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (sale_id, sku, line.get("name", ""), line.get("hsn_code", ""),
                      qty, float(line.get("unit_price", 0)),
                      float(line.get("line_total", 0)),
                      line.get("discount_type", "none"),
@@ -1325,7 +1334,7 @@ def export_sales_csv():
     output = io.StringIO()
     fieldnames = [
         "receipt_number", "date", "timestamp", "cashier",
-        "subtotal", "discount_amount", "tax_amount", "grand_total",
+        "subtotal", "discount_amount", "tax_amount", "cgst_amount", "sgst_amount", "grand_total",
         "payment_method", "customer_name", "customer_phone", "items_summary"
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
@@ -1344,6 +1353,8 @@ def export_sales_csv():
             "subtotal": sale.get("subtotal", 0),
             "discount_amount": sale.get("discount_amount", 0),
             "tax_amount": sale.get("tax_amount", 0),
+            "cgst_amount": sale.get("cgst_amount", 0),
+            "sgst_amount": sale.get("sgst_amount", 0),
             "grand_total": sale.get("grand_total", 0),
             "payment_method": sale.get("payment_method", ""),
             "customer_name": sale.get("customer_name", ""),

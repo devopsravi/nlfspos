@@ -143,6 +143,7 @@ const POS = {
       this.cart.push({
         sku: product.sku,
         barcode: product.barcode || '',
+        hsn_code: product.hsn_code || '',
         name: product.name,
         price: product.selling_price,
         quantity: 1,
@@ -272,6 +273,14 @@ const POS = {
     return this.getAfterDiscount() * App.taxRate();
   },
 
+  getCGST() {
+    return this.getTax() / 2;
+  },
+
+  getSGST() {
+    return this.getTax() / 2;
+  },
+
   getTotal() {
     return this.getAfterDiscount() + this.getTax();
   },
@@ -348,9 +357,10 @@ const POS = {
     const el = (id) => document.getElementById(id);
 
     el('cartItemCount').textContent = totalItems;
-    el('cartSubtotal').textContent = App.currency(this.getSubtotal());
     el('cartDiscount').textContent = totalDiscount > 0 ? `-${App.currency(totalDiscount)}` : `₹0.00`;
-    el('cartTax').textContent = App.currency(this.getTax());
+    el('cartTaxableValue').textContent = App.currency(this.getAfterDiscount());
+    el('cartCGST').textContent = App.currency(this.getCGST());
+    el('cartSGST').textContent = App.currency(this.getSGST());
 
     const grandTotal = this.getTotal();
     el('cartTotal').textContent = App.currency(grandTotal);
@@ -634,10 +644,11 @@ const POS = {
   },
 
   updateTaxLabel() {
-    const label = document.getElementById('taxLabel');
-    if (label) {
-      label.textContent = `${App.taxName()} (${App.settings.tax_rate || 0}%):`;
-    }
+    const halfRate = (parseFloat(App.settings.tax_rate || 0) / 2);
+    const cgstLabel = document.getElementById('cgstLabel');
+    const sgstLabel = document.getElementById('sgstLabel');
+    if (cgstLabel) cgstLabel.textContent = `CGST (${halfRate}%):`;
+    if (sgstLabel) sgstLabel.textContent = `SGST (${halfRate}%):`;
   },
 
   async updateHeldBadge() {
@@ -908,6 +919,7 @@ const POS = {
         return {
           sku: c.sku,
           name: c.name,
+          hsn_code: c.hsn_code || '',
           quantity: c.quantity,
           unit_price: c.price,
           line_total: c.price * c.quantity,
@@ -920,6 +932,8 @@ const POS = {
       subtotal: Math.round(subtotal * 100) / 100,
       discount_amount: Math.round(totalDiscount * 100) / 100,
       tax_amount: Math.round(tax * 100) / 100,
+      cgst_amount: Math.round((tax / 2) * 100) / 100,
+      sgst_amount: Math.round((tax / 2) * 100) / 100,
       grand_total: Math.round(total * 100) / 100,
       payment_method: this.paymentMethod,
       cashier: App.settings.cashier_name || 'Staff',
@@ -1057,14 +1071,15 @@ const POS = {
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:13px;">${idx + 1}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
             <div style="font-weight:600;color:#1f2937;font-size:13px;">${esc(c.name)}</div>
-            <div style="font-size:11px;color:#9ca3af;">${esc(c.barcode || c.sku)}</div>
+            <div style="font-size:11px;color:#9ca3af;">${esc(c.barcode || c.sku)}${c.hsn_code ? ' | HSN: ' + esc(c.hsn_code) : ''}</div>
           </td>
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px;">${c.quantity}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(c.price)}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">
             ${hasDiscount ? `<span style="color:#ef4444;font-size:11px;">-${App.currency(disc)}</span>` : '—'}
           </td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(itemTax)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(itemTax / 2)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;">${App.currency(itemTax / 2)}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;font-size:13px;">${App.currency(itemGross)}</td>
         </tr>`;
     }).join('');
@@ -1116,7 +1131,8 @@ const POS = {
               <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:50px;">Qty</th>
               <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:90px;">Unit Price</th>
               <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">Discount</th>
-              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">${esc(taxName.replace(/\(.*/, '').trim())}</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">CGST</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:80px;">SGST</th>
               <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:100px;">Amount</th>
             </tr>
           </thead>
@@ -1138,8 +1154,16 @@ const POS = {
               <span style="font-weight:600;">-${App.currency(totalDiscount)}</span>
             </div>` : ''}
             <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
-              <span style="color:#6b7280;">${esc(taxName)} (${taxRate}%)</span>
-              <span style="font-weight:600;">${App.currency(tax)}</span>
+              <span style="color:#6b7280;">Taxable Value</span>
+              <span style="font-weight:600;">${App.currency(subtotal - totalDiscount)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
+              <span style="color:#6b7280;">CGST (${taxRate / 2}%)</span>
+              <span style="font-weight:600;">${App.currency(tax / 2)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
+              <span style="color:#6b7280;">SGST (${taxRate / 2}%)</span>
+              <span style="font-weight:600;">${App.currency(tax / 2)}</span>
             </div>
             <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;border-top:2px solid #4f46e5;margin-top:6px;">
               <span style="color:#4f46e5;">TOTAL</span>
@@ -1158,7 +1182,7 @@ const POS = {
           <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Terms & Conditions</div>
           <ol style="font-size:11px;color:#6b7280;margin:0;padding-left:16px;line-height:1.8;">
             <li>This quotation is valid for 7 days from the date of issue.</li>
-            <li>Prices are inclusive of ${esc(taxName.replace(/\(.*/, '').trim())} as applicable.</li>
+            <li>Prices are inclusive of CGST & SGST as applicable.</li>
             <li>Delivery charges, if any, will be communicated separately.</li>
             <li>Payment terms: Full payment at the time of purchase.</li>
             <li>Product availability is subject to stock at the time of order confirmation.</li>
@@ -1220,9 +1244,10 @@ const POS = {
     // Build item rows with per-item discount info
     const itemRows = sale.items.map(i => {
       const hasDisc = i.discount_amount && i.discount_amount > 0;
+      const hsnLine = i.hsn_code ? `<div style="font-size:9px;color:#6b7280;">HSN: ${esc(i.hsn_code)}</div>` : '';
       return `
         <tr>
-          <td class="item-name-cell">${esc(i.name)}</td>
+          <td class="item-name-cell">${esc(i.name)}${hsnLine}</td>
           <td>${i.quantity}</td>
           <td>${App.currency(i.unit_price)}</td>
           <td>
@@ -1264,9 +1289,11 @@ const POS = {
         </table>
         <hr class="receipt-divider" />
         <div class="receipt-totals">
-          <div class="total-row"><span>Subtotal</span><span>${App.currency(sale.subtotal)}</span></div>
-          ${sale.discount_amount > 0 ? `<div class="total-row" style="color:#e74c3c"><span>Total Discount</span><span>-${App.currency(sale.discount_amount)}</span></div>` : ''}
-          <div class="total-row"><span>${App.taxName()} (${s.tax_rate || 0}%)</span><span>${App.currency(sale.tax_amount)}</span></div>
+          ${sale.discount_amount > 0 ? `<div class="total-row"><span>Subtotal</span><span>${App.currency(sale.subtotal)}</span></div>
+          <div class="total-row" style="color:#e74c3c"><span>Discount</span><span>-${App.currency(sale.discount_amount)}</span></div>` : ''}
+          <div class="total-row"><span>Taxable Value</span><span>${App.currency(sale.subtotal - (sale.discount_amount || 0))}</span></div>
+          <div class="total-row"><span>CGST (${(s.tax_rate || 0) / 2}%)</span><span>${App.currency(sale.cgst_amount || sale.tax_amount / 2)}</span></div>
+          <div class="total-row"><span>SGST (${(s.tax_rate || 0) / 2}%)</span><span>${App.currency(sale.sgst_amount || sale.tax_amount / 2)}</span></div>
           <div class="total-row grand-total"><span>TOTAL</span><span>${App.currency(sale.grand_total)}</span></div>
           <div class="total-row" style="margin-top:4px"><span>Paid via</span><span>${sale.payment_method}</span></div>
         </div>
@@ -1351,6 +1378,7 @@ const POS = {
       const hasDisc = i.discount_amount && i.discount_amount > 0;
       const total = hasDisc ? (i.final_total || i.line_total) : i.line_total;
       text += `${idx + 1}. ${i.name}`;
+      if (i.hsn_code) text += ` (HSN: ${i.hsn_code})`;
       text += `\n   ${i.quantity} x ${sym}${i.unit_price}`;
       if (hasDisc) {
         text += ` (-${sym}${i.discount_amount})`;
@@ -1362,7 +1390,12 @@ const POS = {
     if (sale.discount_amount > 0) {
       text += `Discount: -${sym}${sale.discount_amount}\n`;
     }
-    text += `${s.tax_name || 'GST'}: ${sym}${sale.tax_amount}\n`;
+    const halfRate = (parseFloat(s.tax_rate || 0) / 2);
+    const cgst = sale.cgst_amount || (sale.tax_amount / 2);
+    const sgst = sale.sgst_amount || (sale.tax_amount / 2);
+    text += `Taxable Value: ${sym}${Math.round((sale.subtotal - (sale.discount_amount || 0)) * 100) / 100}\n`;
+    text += `CGST (${halfRate}%): ${sym}${Math.round(cgst * 100) / 100}\n`;
+    text += `SGST (${halfRate}%): ${sym}${Math.round(sgst * 100) / 100}\n`;
     text += `*TOTAL: ${sym}${sale.grand_total}*\n`;
     text += `Paid: ${sale.payment_method}\n\n`;
     text += `Thank you for shopping at ${s.store_name || 'our store'}!`;

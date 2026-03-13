@@ -65,6 +65,7 @@ const Inventory = {
       return `
         <tr class="${rowBg} hover:bg-blue-50 dark:hover:bg-gray-800 transition text-sm">
           <td class="px-4 py-2.5 font-mono text-xs text-gray-600">${displayCode}</td>
+          <td class="px-4 py-2.5 font-mono text-xs text-gray-600">${esc(p.hsn_code || '')}</td>
           <td class="inv-name-cell font-medium text-gray-800" title="${esc(p.name)}">${esc(p.name)}</td>
           <td class="px-4 py-2.5 text-gray-600">${esc(p.category)}</td>
           <td class="px-4 py-2.5 text-right font-semibold ${isLow ? 'text-red-600' : 'text-gray-800'}">${p.quantity}</td>
@@ -92,6 +93,10 @@ const Inventory = {
   },
 
   bindEvents() {
+    // Search & filters (use .onclick/.onchange to prevent stacking on re-init)
+    if (this._eventsBound) return;
+    this._eventsBound = true;
+
     // Search & filters
     const search = document.getElementById('invSearch');
     const catFilter = document.getElementById('invCategoryFilter');
@@ -113,8 +118,9 @@ const Inventory = {
     // Add product button
     document.getElementById('btnAddProduct')?.addEventListener('click', () => this.openModal());
 
-    // Form submit
-    document.getElementById('productForm')?.addEventListener('submit', (e) => this.handleSubmit(e));
+    // Form submit (use onsubmit to guarantee only one handler)
+    const productForm = document.getElementById('productForm');
+    if (productForm) productForm.onsubmit = (e) => this.handleSubmit(e);
 
     // Pricing auto-calc (markup / margin / selling price)
     this.setupPriceCalc();
@@ -241,9 +247,17 @@ const Inventory = {
 
   async handleSubmit(e) {
     e.preventDefault();
+    if (this._submitting) return;
+    this._submitting = true;
+
     const form = e.target;
     const data = {};
     new FormData(form).forEach((v, k) => { data[k] = v; });
+
+    // Title-case the product name (capitalize first letter of each word)
+    if (data.name) {
+      data.name = data.name.replace(/\b\w/g, c => c.toUpperCase());
+    }
 
     // Remove calculated-only fields (not stored in DB)
     delete data.markup_pct;
@@ -294,6 +308,8 @@ const Inventory = {
       }
     } catch (err) {
       App.toast('Failed to save product');
+    } finally {
+      this._submitting = false;
     }
   },
 
@@ -749,8 +765,16 @@ const Inventory = {
             <div class="text-lg font-bold text-red-600">-${App.currency(sale.discount_amount || 0)}</div>
           </div>
           <div class="bg-gray-50 rounded-lg p-3">
-            <div class="text-xs text-gray-500 mb-1">Tax</div>
-            <div class="text-lg font-bold">${App.currency(sale.tax_amount || 0)}</div>
+            <div class="text-xs text-gray-500 mb-1">Taxable Value</div>
+            <div class="text-lg font-bold">${App.currency((sale.subtotal || 0) - (sale.discount_amount || 0))}</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-xs text-gray-500 mb-1">CGST</div>
+            <div class="text-lg font-bold">${App.currency(sale.cgst_amount || (sale.tax_amount || 0) / 2)}</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-xs text-gray-500 mb-1">SGST</div>
+            <div class="text-lg font-bold">${App.currency(sale.sgst_amount || (sale.tax_amount || 0) / 2)}</div>
           </div>
           <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
             <div class="text-xs text-blue-600 mb-1">Grand Total</div>
@@ -903,7 +927,9 @@ const Inventory = {
           <div style="text-align:right;font-size:14px;">
             <div style="margin:4px 0;">Subtotal: <strong>${App.currency(sale.subtotal)}</strong></div>
             ${sale.discount_amount > 0 ? `<div style="margin:4px 0;color:#e74c3c;">Discount: <strong>-${App.currency(sale.discount_amount)}</strong></div>` : ''}
-            <div style="margin:4px 0;">Tax: <strong>${App.currency(sale.tax_amount || 0)}</strong></div>
+            <div style="margin:4px 0;">Taxable Value: <strong>${App.currency((sale.subtotal || 0) - (sale.discount_amount || 0))}</strong></div>
+            <div style="margin:4px 0;">CGST: <strong>${App.currency(sale.cgst_amount || (sale.tax_amount || 0) / 2)}</strong></div>
+            <div style="margin:4px 0;">SGST: <strong>${App.currency(sale.sgst_amount || (sale.tax_amount || 0) / 2)}</strong></div>
             <div style="margin:8px 0;font-size:18px;color:#3a7bd5;"><strong>Grand Total: ${App.currency(sale.grand_total)}</strong></div>
           </div>
           <hr style="border:1px solid #eee;margin:20px 0;" />
