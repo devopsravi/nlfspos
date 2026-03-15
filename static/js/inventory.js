@@ -9,6 +9,7 @@ const Inventory = {
   async init() {
     await this.loadProducts();
     this.loadCategories();
+    this.loadSuppliers();
     this.render();
     this.bindEvents();
   },
@@ -50,6 +51,18 @@ const Inventory = {
         prodSel.innerHTML = '<option value="">Select…</option>' +
           cats.map(c => `<option value="${esc(c)}"${c === current ? ' selected' : ''}>${esc(c)}</option>`).join('');
       }
+    } catch (e) { /* ignore */ }
+  },
+
+  async loadSuppliers() {
+    try {
+      const res = await fetch('/api/suppliers');
+      const suppliers = await res.json();
+      const sel = document.getElementById('productSupplierSelect');
+      if (!sel) return;
+      const current = sel.value;
+      sel.innerHTML = '<option value="">— Select Supplier —</option>' +
+        suppliers.map(s => `<option value="${esc(s.name)}"${s.name === current ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
     } catch (e) { /* ignore */ }
   },
 
@@ -244,6 +257,18 @@ const Inventory = {
     }
 
     if (product) {
+      // Ensure supplier option exists before setting value
+      const supplierSel = document.getElementById('productSupplierSelect');
+      if (supplierSel && product.supplier) {
+        const exists = Array.from(supplierSel.options).some(o => o.value === product.supplier);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = product.supplier;
+          opt.textContent = product.supplier;
+          supplierSel.appendChild(opt);
+        }
+      }
+
       Object.keys(product).forEach(key => {
         const input = form.elements[key];
         if (input) input.value = product[key] ?? '';
