@@ -1389,17 +1389,27 @@ def sales_dashboard():
     month_count = row["cnt"]
     month_total = row["total"]
 
-    # Top selling products (all time, exclude voided)
+    # Top selling products (this month, exclude voided)
     top_rows = conn.execute(
         """SELECT si.name, SUM(si.quantity) as qty_sold, SUM(si.final_total) as revenue
            FROM sale_items si
            JOIN sales s ON si.sale_id = s.id
-           WHERE s.status != 'Voided'
+           WHERE s.status != 'Voided' AND s.date >= ?
            GROUP BY si.sku, si.name
            ORDER BY qty_sold DESC
-           LIMIT 5"""
+           LIMIT 5""",
+        (month_start,)
     ).fetchall()
     top_products = [{"name": r["name"], "qty_sold": r["qty_sold"], "revenue": round(r["revenue"], 2)} for r in top_rows]
+
+    # Payment mix (this month, exclude voided)
+    pay_rows = conn.execute(
+        """SELECT payment_method, COUNT(*) as cnt, COALESCE(SUM(grand_total), 0) as total
+           FROM sales WHERE status != 'Voided' AND date >= ?
+           GROUP BY payment_method ORDER BY total DESC""",
+        (month_start,)
+    ).fetchall()
+    payment_mix = [{"method": r["payment_method"], "count": r["cnt"], "total": round(r["total"], 2)} for r in pay_rows]
 
     # Low stock
     threshold = settings.get("low_stock_threshold", 3)
@@ -1409,23 +1419,27 @@ def sales_dashboard():
     low_stock_items = rows_to_list(low_rows)
     total_inventory = conn.execute("SELECT COUNT(*) as cnt FROM inventory").fetchone()["cnt"]
 
-    # Revenue & Cost (exclude voided)
-    total_revenue_row = conn.execute("SELECT COALESCE(SUM(grand_total), 0) as total FROM sales WHERE status != 'Voided'").fetchone()
+    # Revenue & Cost — this month (exclude voided)
+    total_revenue_row = conn.execute(
+        "SELECT COALESCE(SUM(grand_total), 0) as total FROM sales WHERE status != 'Voided' AND date >= ?",
+        (month_start,)
+    ).fetchone()
     total_revenue = total_revenue_row["total"]
 
-    # Calculate cost from sale_items joined with inventory cost_price (exclude voided)
     cost_row = conn.execute(
         """SELECT COALESCE(SUM(si.quantity * COALESCE(inv.cost_price, 0)), 0) as total_cost
            FROM sale_items si
            JOIN sales s ON si.sale_id = s.id
            LEFT JOIN inventory inv ON si.sku = inv.sku
-           WHERE s.status != 'Voided'"""
+           WHERE s.status != 'Voided' AND s.date >= ?""",
+        (month_start,)
     ).fetchone()
     total_cost = cost_row["total_cost"]
 
-    # Void/refund counts
+    # Void/refund counts — this month
     void_row = conn.execute(
-        "SELECT COUNT(*) as cnt, COALESCE(SUM(grand_total), 0) as total FROM sales WHERE status = 'Voided'"
+        "SELECT COUNT(*) as cnt, COALESCE(SUM(grand_total), 0) as total FROM sales WHERE status = 'Voided' AND date >= ?",
+        (month_start,)
     ).fetchone()
 
     return jsonify({
@@ -1448,6 +1462,7 @@ def sales_dashboard():
         "total_profit": round(total_revenue - total_cost, 2),
         "voids_count": void_row["cnt"],
         "voids_total": round(void_row["total"], 2),
+        "payment_mix": payment_mix,
     })
 
 

@@ -223,49 +223,36 @@ const Sales = {
     const mixEl = document.getElementById('paymentMix');
     if (!mixEl) return;
 
-    // We need payment breakdown — fetch from sales
-    fetch('/api/sales').then(r => r.json()).then(sales => {
-      const byMethod = {};
-      let total = 0;
-      sales.forEach(s => {
-        if ((s.status || 'Complete') === 'Voided') return; // exclude voided
-        const m = s.payment_method || 'Other';
-        byMethod[m] = (byMethod[m] || 0) + (s.grand_total || 0);
-        total += s.grand_total || 0;
-      });
+    const mix = dashData.payment_mix || [];
+    const total = mix.reduce((s, m) => s + m.total, 0);
 
-      if (total === 0) {
-        mixEl.innerHTML = '<p class="text-gray-400 text-xs">No sales data</p>';
-        return;
-      }
+    if (total === 0) {
+      mixEl.innerHTML = '<p class="text-gray-400 text-xs">No sales data</p>';
+      return;
+    }
 
-      const colors = { Cash: '#22c55e', Card: '#3b82f6', UPI: '#f97316', Other: '#a855f7' };
-      const methods = Object.entries(byMethod).sort((a, b) => b[1] - a[1]);
+    const colors = { Cash: '#22c55e', Card: '#3b82f6', UPI: '#f97316', Other: '#a855f7' };
 
-      // Build a simple horizontal stacked bar + legend
-      const barSegments = methods.map(([m, v]) => {
-        const pct = ((v / total) * 100).toFixed(1);
-        return `<div style="width:${pct}%;background:${colors[m] || '#6b7280'};height:100%;min-width:2px" title="${m}: ${pct}%"></div>`;
-      }).join('');
+    const barSegments = mix.map(m => {
+      const pct = ((m.total / total) * 100).toFixed(1);
+      return `<div style="width:${pct}%;background:${colors[m.method] || '#6b7280'};height:100%;min-width:2px" title="${m.method}: ${pct}%"></div>`;
+    }).join('');
 
-      const legendItems = methods.map(([m, v]) => {
-        const pct = ((v / total) * 100).toFixed(1);
-        return `
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:${colors[m] || '#6b7280'}"></div>
-            <span class="text-xs text-gray-700 font-medium">${m}</span>
-            <span class="text-xs text-gray-400 ml-auto">${pct}%</span>
-            <span class="text-xs font-semibold">${App.currency(v)}</span>
-          </div>`;
-      }).join('');
-
-      mixEl.innerHTML = `
-        <div class="w-full">
-          <div class="flex h-8 rounded-lg overflow-hidden mb-4 shadow-inner">${barSegments}</div>
-          <div class="space-y-2.5">${legendItems}</div>
+    const legendItems = mix.map(m => {
+      const pct = ((m.total / total) * 100).toFixed(1);
+      return `
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:${colors[m.method] || '#6b7280'}"></div>
+          <span class="text-xs text-gray-700 font-medium">${m.method}</span>
+          <span class="text-xs text-gray-400 ml-auto">${pct}%</span>
+          <span class="text-xs font-semibold">${App.currency(m.total)}</span>
         </div>`;
-    }).catch(() => {
-      mixEl.innerHTML = '<p class="text-gray-400 text-xs">Failed to load</p>';
-    });
+    }).join('');
+
+    mixEl.innerHTML = `
+      <div class="w-full">
+        <div class="flex h-8 rounded-lg overflow-hidden mb-4 shadow-inner">${barSegments}</div>
+        <div class="space-y-2.5">${legendItems}</div>
+      </div>`;
   },
 };
