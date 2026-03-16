@@ -43,6 +43,12 @@ const App = {
   userRole: 'staff',  // set from server
 
   async init() {
+    // Show post-update confirmation if we just auto-refreshed
+    if (sessionStorage.getItem('nlf_updated')) {
+      sessionStorage.removeItem('nlf_updated');
+      setTimeout(() => this.toast('App updated to latest version', 3000), 500);
+    }
+
     // Initialize offline store first (non-blocking)
     if (typeof OfflineStore !== 'undefined') {
       OfflineStore.init().catch((e) => console.warn('[App] OfflineStore init failed:', e));
@@ -80,6 +86,9 @@ const App = {
 
     // Register Service Worker
     this.registerServiceWorker();
+
+    // Real-time updates via SSE (auto-refresh on deploy, live settings sync)
+    this.setupEventStream();
 
     // PWA Install prompt
     this.setupInstallPrompt();
@@ -554,6 +563,119 @@ const App = {
       const btn = document.getElementById('btnInstallApp');
       if (btn) btn.classList.add('hidden');
     });
+  },
+
+  // --- Real-Time Updates via Server-Sent Events ---
+  _eventSource: null,
+  _sseReconnectDelay: 1000,
+  _versionPollTimer: null,
+
+  setupEventStream() {
+    if (!window.EventSource) {
+      console.warn('[App] EventSource not supported — falling back to polling');
+      this._startVersionPolling();
+      return;
+    }
+    this._connectSSE();
+  },
+
+  _connectSSE() {
+    if (this._eventSource) {
+      try { this._eventSource.close(); } catch (_) {}
+    }
+
+    const es = new EventSource('/api/events');
+    this._eventSource = es;
+
+    es.addEventListener('connected', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        this._serverVersion = d.version;
+        this._sseReconnectDelay = 1000;
+        console.log('[SSE] Connected, server version:', d.version);
+        if (window.__APP_VERSION__ && d.version !== window.__APP_VERSION__) {
+          console.log('[SSE] Version mismatch on connect — refreshing');
+          this._clearAllCachesAndReload();
+        }
+      } catch (_) {}
+    });
+
+    es.addEventListener('version_changed', (e) => {
+      console.log('[SSE] Version changed — auto-refreshing');
+      this.toast('New version available — updating...', 3000);
+      setTimeout(() => this._clearAllCachesAndReload(), 1500);
+    });
+
+    es.addEventListener('settings_updated', async (e) => {
+      console.log('[SSE] Settings updated — syncing');
+      await this.loadSettings();
+      this.updateHeader();
+    });
+
+    es.addEventListener('inventory_updated', (e) => {
+      console.log('[SSE] Inventory updated — refreshing data');
+      if (this.currentPage === 'pos' && typeof POS !== 'undefined') {
+        POS.loadProducts();
+      }
+      if (this.currentPage === 'inventory' && typeof Inventory !== 'undefined') {
+        Inventory.loadProducts().then(() => Inventory.render());
+      }
+    });
+
+    es.onerror = () => {
+      es.close();
+      this._eventSource = null;
+      console.warn(`[SSE] Connection lost — reconnecting in ${this._sseReconnectDelay / 1000}s`);
+      setTimeout(() => {
+        if (navigator.onLine) this._connectSSE();
+        else this._startVersionPolling();
+      }, this._sseReconnectDelay);
+      this._sseReconnectDelay = Math.min(this._sseReconnectDelay * 2, 30000);
+    };
+  },
+
+  _startVersionPolling() {
+    if (this._versionPollTimer) return;
+    console.log('[App] Starting version polling fallback');
+    this._versionPollTimer = setInterval(async () => {
+      if (!navigator.onLine) return;
+      try {
+        const res = await fetch('/api/version');
+        if (!res.ok) return;
+        const d = await res.json();
+        if (window.__APP_VERSION__ && d.version !== window.__APP_VERSION__) {
+          console.log('[Poll] Version mismatch — refreshing');
+          this.toast('New version available — updating...', 3000);
+          clearInterval(this._versionPollTimer);
+          this._versionPollTimer = null;
+          setTimeout(() => this._clearAllCachesAndReload(), 1500);
+        }
+      } catch (_) {}
+    }, 60000);
+  },
+
+  async _clearAllCachesAndReload() {
+    try {
+      sessionStorage.setItem('nlf_updated', '1');
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+        console.log('[App] All caches cleared');
+      }
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          if (reg.active) {
+            reg.active.postMessage({ type: 'CLEAR_CACHES' });
+          }
+          await reg.unregister();
+          console.log('[App] Service worker unregistered');
+        }
+      }
+    } catch (e) {
+      console.warn('[App] Cache clear error:', e);
+    }
+    window.location.reload(true);
   },
 
   // --- PWA: Service Worker Registration ---

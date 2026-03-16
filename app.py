@@ -14,6 +14,9 @@ import atexit
 import time
 import random
 import base64
+import queue
+import threading
+import glob as _glob
 from collections import defaultdict
 from datetime import datetime, date, timedelta
 from pathlib import Path
@@ -57,6 +60,87 @@ app.config["PERMANENT_SESSION_LIFETIME"] = 9 * 60 * 60
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
+STARTUP_TIME = datetime.now().isoformat()
+
+# ---------------------------------------------------------------------------
+# Asset versioning — content-hash cache busting (replaces manual ?v=N)
+# ---------------------------------------------------------------------------
+
+_asset_hash_cache = {}
+
+
+def _compute_app_version():
+    """Hash all static JS/CSS files to produce a single APP_VERSION string."""
+    h = hashlib.md5()
+    static = os.path.join(app.static_folder)
+    for pattern in ("js/*.js", "css/*.css"):
+        for fpath in sorted(_glob.glob(os.path.join(static, pattern))):
+            h.update(open(fpath, "rb").read())
+    return h.hexdigest()[:12]
+
+
+APP_VERSION = _compute_app_version()
+print(f"[APP] Version: {APP_VERSION}")
+
+
+@app.template_filter("asset_url")
+def asset_url_filter(path):
+    """Jinja2 filter: {{ '/static/js/pos.js' | asset_url }} → /static/js/pos.js?h=a3f8c1e2"""
+    rel = path.lstrip("/").replace("static/", "", 1)
+    fpath = os.path.join(app.static_folder, rel)
+    try:
+        mtime = os.path.getmtime(fpath)
+    except OSError:
+        return path
+    cache_key = f"{path}:{mtime}"
+    if cache_key not in _asset_hash_cache:
+        h = hashlib.md5(open(fpath, "rb").read()).hexdigest()[:8]
+        _asset_hash_cache[cache_key] = f"{path}?h={h}"
+    return _asset_hash_cache[cache_key]
+
+
+@app.context_processor
+def inject_app_version():
+    return {"app_version": APP_VERSION}
+
+
+# ---------------------------------------------------------------------------
+# HTTP Cache Headers (CDN/Edge-ready)
+# ---------------------------------------------------------------------------
+
+@app.after_request
+def set_cache_headers(response):
+    if response.content_type and "text/html" in response.content_type:
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    elif request.path.startswith("/static/") and "h=" in request.query_string.decode("utf-8", errors="ignore"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Server-Sent Events (SSE) — real-time push to all terminals
+# ---------------------------------------------------------------------------
+
+_sse_clients = []
+_sse_lock = threading.Lock()
+
+
+def broadcast_event(event_type, data=None):
+    """Push an event to all connected SSE clients."""
+    msg = f"event: {event_type}\ndata: {json.dumps(data or {})}\n\n"
+    with _sse_lock:
+        dead = []
+        for q in _sse_clients:
+            try:
+                q.put_nowait(msg)
+            except queue.Full:
+                dead.append(q)
+        for q in dead:
+            _sse_clients.remove(q)
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +405,55 @@ def service_worker():
 
 
 # ---------------------------------------------------------------------------
+# SSE Events Endpoint
+# ---------------------------------------------------------------------------
+
+@app.route("/api/events")
+@login_required
+def sse_events():
+    """Server-Sent Events stream for real-time updates to all terminals."""
+    q = queue.Queue(maxsize=50)
+    with _sse_lock:
+        _sse_clients.append(q)
+
+    def stream():
+        try:
+            yield f"event: connected\ndata: {json.dumps({'version': APP_VERSION})}\n\n"
+            while True:
+                try:
+                    msg = q.get(timeout=25)
+                    yield msg
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _sse_lock:
+                if q in _sse_clients:
+                    _sse_clients.remove(q)
+
+    return Response(
+        stream(),
+        content_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Version Endpoint (SSE fallback + health)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/version")
+@login_required
+def get_app_version():
+    return jsonify({"version": APP_VERSION, "timestamp": STARTUP_TIME})
+
+
+# ---------------------------------------------------------------------------
 # Frontend
 # ---------------------------------------------------------------------------
 
@@ -372,6 +505,7 @@ def update_settings():
             (key, str_value)
         )
     conn.commit()
+    broadcast_event("settings_updated", {"keys": list(data.keys())})
     return jsonify({"success": True, "data": data})
 
 
@@ -515,6 +649,7 @@ def add_product():
          product.get("supplier", ""), today, today)
     )
     db().commit()
+    broadcast_event("inventory_updated", {"action": "added", "sku": product["sku"]})
     return jsonify({"success": True, "product": product}), 201
 
 
@@ -608,6 +743,7 @@ def update_product(sku):
         )
 
     conn.commit()
+    broadcast_event("inventory_updated", {"action": "updated", "sku": sku})
 
     updated = conn.execute("SELECT * FROM inventory WHERE sku = ?", (sku,)).fetchone()
     return jsonify({"success": True, "product": row_to_dict(updated)})
@@ -620,6 +756,7 @@ def delete_product(sku):
     db().commit()
     if result.rowcount == 0:
         return jsonify({"error": "Product not found"}), 404
+    broadcast_event("inventory_updated", {"action": "deleted", "sku": sku})
     return jsonify({"success": True})
 
 

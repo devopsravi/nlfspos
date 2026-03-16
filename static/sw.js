@@ -1,85 +1,46 @@
 /* =============================================
-   NLF POS — Service Worker
-   Cache app shell + network-first for API
+   NLF POS — Service Worker (Enterprise)
+   Network-first when online, cache fallback offline
    ============================================= */
 
-const SHELL_CACHE = 'nlf-pos-shell-v7';
-const API_CACHE   = 'nlf-pos-api-v7';
-const ALL_CACHES  = [SHELL_CACHE, API_CACHE];
+const CACHE_NAME = 'nlf-pos-v1';
 
-// --- App shell files to pre-cache on install ---
-const SHELL_FILES = [
-  '/',
-  '/static/css/main.css?v=13',
-  '/static/css/pos.css?v=13',
-  '/static/css/labels.css?v=13',
-  '/static/css/receipt.css?v=13',
-  '/static/js/app.js?v=13',
-  '/static/js/pos.js?v=13',
-  '/static/js/inventory.js?v=13',
-  '/static/js/labels.js?v=13',
-  '/static/js/sales.js?v=13',
-  '/static/js/reports.js?v=13',
-  '/static/js/transactions.js?v=13',
-  '/static/js/settings.js?v=13',
-  '/static/js/suppliers.js?v=13',
-  '/static/js/customers.js?v=13',
-  '/static/js/orders.js?v=13',
-  '/static/js/scanner.js?v=13',
-  '/static/js/offline-store.js?v=13',
-  '/static/img/logo.svg',
-  '/static/img/favicon.svg',
-  '/static/img/icon-192.png',
-  '/static/img/icon-512.png',
-  '/static/manifest.json',
-];
-
-// CDN libraries to cache on first use (not on install to avoid CORS issues)
 const CDN_PATTERNS = [
   'cdn.jsdelivr.net',
   'cdn.tailwindcss.com',
   'unpkg.com',
 ];
 
-// API paths eligible for network-first caching (GET only)
 const CACHEABLE_API = [
   '/api/inventory',
-  '/api/inventory/categories',
+  '/api/categories',
   '/api/settings',
 ];
 
-// API paths that should NEVER be cached
 const NEVER_CACHE = [
   '/api/auth/',
   '/api/sales',
+  '/api/events',
+  '/api/version',
   '/login',
 ];
 
-// ---- Install: pre-cache app shell ----
-self.addEventListener('install', (event) => {
-  console.log('[SW] Installing...');
-  event.waitUntil(
-    caches.open(SHELL_CACHE)
-      .then((cache) => {
-        console.log('[SW] Pre-caching app shell');
-        return cache.addAll(SHELL_FILES);
-      })
-      .then(() => self.skipWaiting())
-      .catch((err) => {
-        console.warn('[SW] Some shell files failed to cache:', err);
-        return self.skipWaiting();
-      })
-  );
+// ---- Install: activate immediately (no pre-cache) ----
+self.addEventListener('install', () => {
+  console.log('[SW] Installing (enterprise)...');
+  self.skipWaiting();
 });
 
-// ---- Activate: clean up old caches ----
+// ---- Activate: clean old caches, claim clients ----
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating...');
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(
-        keys.filter((k) => !ALL_CACHES.includes(k))
-            .map((k) => { console.log('[SW] Removing old cache:', k); return caches.delete(k); })
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => {
+          console.log('[SW] Removing old cache:', k);
+          return caches.delete(k);
+        })
       ))
       .then(() => self.clients.claim())
   );
@@ -90,75 +51,82 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle GET requests for caching
   if (request.method !== 'GET') return;
 
-  // Skip never-cache routes
-  if (NEVER_CACHE.some((p) => url.pathname.startsWith(p))) return;
+  // Never cache these
+  if (NEVER_CACHE.some(p => url.pathname.startsWith(p))) return;
 
-  // CDN resources: cache-first (once cached, serve from cache)
-  if (CDN_PATTERNS.some((p) => url.hostname.includes(p))) {
-    event.respondWith(cacheFirst(request, SHELL_CACHE));
+  // CDN: stale-while-revalidate (fast + fresh)
+  if (CDN_PATTERNS.some(p => url.hostname.includes(p))) {
+    event.respondWith(staleWhileRevalidate(request));
     return;
   }
 
-  // Cacheable API: network-first, fallback to cache
-  if (CACHEABLE_API.some((p) => url.pathname.startsWith(p))) {
-    event.respondWith(networkFirst(request, API_CACHE));
+  // Cacheable API: network-first, cache fallback
+  if (CACHEABLE_API.some(p => url.pathname.startsWith(p))) {
+    event.respondWith(networkFirst(request));
     return;
   }
 
-  // Static assets (/static/): cache-first
+  // Static assets: network-first when online, cache fallback offline
   if (url.pathname.startsWith('/static/')) {
-    event.respondWith(cacheFirst(request, SHELL_CACHE));
+    event.respondWith(networkFirst(request));
     return;
   }
 
-  // HTML page (/): network-first (so login redirects work)
+  // HTML: network-first (always get fresh HTML with latest asset hashes)
   if (url.pathname === '/' || url.pathname === '') {
-    event.respondWith(networkFirst(request, SHELL_CACHE));
+    event.respondWith(networkFirst(request));
     return;
   }
 });
 
 // ---- Strategies ----
 
-async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-
+async function networkFirst(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
-      const cache = await caches.open(cacheName);
+      const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone());
     }
     return response;
   } catch (err) {
-    // Offline and not cached — return generic offline fallback
-    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-  }
-}
-
-async function networkFirst(request, cacheName) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (err) {
-    // Network failed — try cache
     const cached = await caches.match(request);
     if (cached) return cached;
     return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
   }
 }
 
-// ---- Message handler (for sync triggers from client) ----
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+
+  const fetchPromise = fetch(request).then(response => {
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  }).catch(() => null);
+
+  if (cached) {
+    fetchPromise.catch(() => {});
+    return cached;
+  }
+
+  const response = await fetchPromise;
+  if (response) return response;
+  return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+}
+
+// ---- Message handler ----
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  if (event.data?.type === 'CLEAR_CACHES') {
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.matchAll())
+      .then(clients => clients.forEach(c => c.postMessage({ type: 'CACHES_CLEARED' })))
+      .catch(err => console.warn('[SW] Clear caches error:', err));
   }
 });

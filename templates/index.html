@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Next Level Furniture — POS</title>
-  <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg" />
-  <link rel="apple-touch-icon" href="/static/img/icon-192.png?v=2" />
+  <link rel="icon" type="image/svg+xml" href="{{ '/static/img/favicon.svg' | asset_url }}" />
+  <link rel="apple-touch-icon" href="{{ '/static/img/icon-192.png' | asset_url }}" />
 
   <!-- PWA Manifest & Meta -->
-  <link rel="manifest" href="/static/manifest.json?v=2" />
+  <link rel="manifest" href="{{ '/static/manifest.json' | asset_url }}" />
   <meta name="theme-color" content="#1e293b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -43,10 +43,10 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="/static/css/main.css?v=13" />
-  <link rel="stylesheet" href="/static/css/pos.css?v=16" />
-  <link rel="stylesheet" href="/static/css/labels.css?v=14" />
-  <link rel="stylesheet" href="/static/css/receipt.css?v=14" />
+  <link rel="stylesheet" href="{{ '/static/css/main.css' | asset_url }}" />
+  <link rel="stylesheet" href="{{ '/static/css/pos.css' | asset_url }}" />
+  <link rel="stylesheet" href="{{ '/static/css/labels.css' | asset_url }}" />
+  <link rel="stylesheet" href="{{ '/static/css/receipt.css' | asset_url }}" />
 </head>
 <body class="bg-[#ecf0f1] text-gray-800 min-h-screen flex">
 
@@ -2345,22 +2345,25 @@
     </div>
   </div>
 
-  <!-- JS Modules (v= cache-buster) -->
-  <script src="/static/js/offline-store.js?v=14"></script>
-  <script src="/static/js/scanner.js?v=14"></script>
-  <script src="/static/js/app.js?v=18"></script>
-  <script src="/static/js/inventory.js?v=22"></script>
-  <script src="/static/js/printer.js?v=1"></script>
-  <script src="/static/js/pos.js?v=23"></script>
-  <script src="/static/js/labels.js?v=15"></script>
-  <script src="/static/js/sales.js?v=15"></script>
-  <script src="/static/js/reports.js?v=14"></script>
-  <script src="/static/js/transactions.js?v=14"></script>
-  <script src="/static/js/settings.js?v=16"></script>
-  <script src="/static/js/suppliers.js?v=14"></script>
-  <script src="/static/js/customers.js?v=14"></script>
-  <script src="/static/js/orders.js?v=15"></script>
-  <script src="/static/js/categories.js?v=1"></script>
+  <!-- App version for auto-refresh -->
+  <script>window.__APP_VERSION__ = '{{ app_version }}';</script>
+
+  <!-- JS Modules (auto-hashed cache-buster) -->
+  <script src="{{ '/static/js/offline-store.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/scanner.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/app.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/inventory.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/printer.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/pos.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/labels.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/sales.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/reports.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/transactions.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/settings.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/suppliers.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/customers.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/orders.js' | asset_url }}"></script>
+  <script src="{{ '/static/js/categories.js' | asset_url }}"></script>
 
   <!-- Barcode Scanner Modal (shared by POS & Inventory) -->
   <div id="scannerModal" class="hidden fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
