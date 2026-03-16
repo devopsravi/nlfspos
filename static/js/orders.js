@@ -82,16 +82,38 @@ const Orders = {
     const cancelSearch = document.getElementById('btnCancelOrderItemSearch');
     if (cancelSearch) cancelSearch.onclick = () => this.hideItemSearch();
 
-    // Add new product from order
+    // Add new product from order — opens product modal, auto-adds to order on save
     const newProdBtn = document.getElementById('btnAddNewProductFromOrder');
     if (newProdBtn) {
-      newProdBtn.onclick = () => {
+      newProdBtn.onclick = async () => {
         this.hideItemSearch();
-        // Open inventory product modal
-        if (typeof Inventory !== 'undefined') {
-          Inventory.openModal();
-        } else {
-          App.toast('Navigate to Inventory to add new products', 'info');
+        if (typeof Inventory === 'undefined') {
+          App.toast('Inventory module not available');
+          return;
+        }
+        // Ensure dropdowns are loaded
+        await Inventory.loadCategories();
+        await Inventory.loadSuppliers();
+
+        // Set a callback so the saved product gets added to the order
+        Inventory._onProductSaved = (product) => {
+          if (product && product.sku) {
+            this.products.push(product);
+            this.addProductToOrder(product.sku);
+          }
+          Inventory._onProductSaved = null;
+        };
+
+        Inventory.openModal();
+
+        // Pre-fill supplier from the current order's selected supplier
+        const orderSupplier = document.getElementById('orderSupplier');
+        if (orderSupplier && orderSupplier.value) {
+          const supplierName = orderSupplier.options[orderSupplier.selectedIndex]?.textContent || '';
+          const supplierSel = document.getElementById('productSupplierSelect');
+          if (supplierSel && supplierName) {
+            supplierSel.value = supplierName;
+          }
         }
       };
     }

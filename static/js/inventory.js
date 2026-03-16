@@ -340,6 +340,11 @@ const Inventory = {
       if (shouldPrintLabel && savedProduct && typeof Labels !== 'undefined') {
         Labels.printSingleLabel(savedProduct);
       }
+
+      // Callback for external callers (e.g. Purchase Orders adding a new product)
+      if (!this.editingSku && savedProduct && typeof this._onProductSaved === 'function') {
+        this._onProductSaved(savedProduct);
+      }
     } catch (err) {
       App.toast('Failed to save product');
     } finally {
