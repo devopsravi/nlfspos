@@ -366,7 +366,12 @@ const Inventory = {
     const ok = await App.confirm('Delete this product?');
     if (!ok) return;
     try {
-      await fetch(`/api/inventory/${sku}`, { method: 'DELETE' });
+      const res = await fetch(`/api/inventory/${sku}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        App.toast(data.error || 'Failed to delete product', 'error');
+        return;
+      }
       App.toast('Product deleted');
       await this.loadProducts();
       this.render();

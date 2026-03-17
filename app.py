@@ -752,10 +752,30 @@ def update_product(sku):
 @app.route("/api/inventory/<sku>", methods=["DELETE"])
 @login_required
 def delete_product(sku):
-    result = db().execute("DELETE FROM inventory WHERE sku = ?", (sku,))
-    db().commit()
-    if result.rowcount == 0:
+    conn = db()
+    # Verify product exists
+    row = conn.execute("SELECT sku FROM inventory WHERE sku = ?", (sku,)).fetchone()
+    if not row:
         return jsonify({"error": "Product not found"}), 404
+
+    # Check if product has sales history (must not delete — audit trail)
+    has_sales = conn.execute(
+        "SELECT 1 FROM sale_items WHERE sku = ? LIMIT 1", (sku,)
+    ).fetchone()
+    if has_sales:
+        return jsonify({"error": "Cannot delete — product has sales history. Set quantity to 0 instead."}), 409
+
+    try:
+        # Clean up dependent records that are safe to remove
+        conn.execute("DELETE FROM inventory_log WHERE sku = ?", (sku,))
+        conn.execute("DELETE FROM purchases WHERE sku = ?", (sku,))
+        conn.execute("DELETE FROM purchase_order_items WHERE sku = ?", (sku,))
+        conn.execute("DELETE FROM inventory WHERE sku = ?", (sku,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": f"Cannot delete — product is referenced elsewhere: {e}"}), 409
+
     broadcast_event("inventory_updated", {"action": "deleted", "sku": sku})
     return jsonify({"success": True})
 
