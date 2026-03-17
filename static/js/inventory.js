@@ -362,14 +362,25 @@ const Inventory = {
     }
   },
 
-  async delete(sku) {
-    const ok = await App.confirm('Delete this product?');
+  async delete(sku, force = false) {
+    const msg = force
+      ? 'FORCE DELETE? This will also remove all sales history for this product. This cannot be undone.'
+      : 'Delete this product?';
+    const ok = await App.confirm(msg);
     if (!ok) return;
     try {
-      const res = await fetch(`/api/inventory/${sku}`, { method: 'DELETE' });
+      const url = force ? `/api/inventory/${sku}?force=true` : `/api/inventory/${sku}`;
+      const res = await fetch(url, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) {
-        App.toast(data.error || 'Failed to delete product', 'error');
+        if (data.has_sales && App.userRole === 'admin') {
+          const forceOk = await App.confirm(
+            'This product has sales history and cannot be normally deleted.\n\nForce delete? (removes sales line-items too)'
+          );
+          if (forceOk) return this.delete(sku, true);
+        } else {
+          App.toast(data.error || 'Failed to delete product', 'error');
+        }
         return;
       }
       App.toast('Product deleted');

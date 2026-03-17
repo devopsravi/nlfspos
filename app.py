@@ -753,20 +753,30 @@ def update_product(sku):
 @login_required
 def delete_product(sku):
     conn = db()
-    # Verify product exists
     row = conn.execute("SELECT sku FROM inventory WHERE sku = ?", (sku,)).fetchone()
     if not row:
         return jsonify({"error": "Product not found"}), 404
 
-    # Check if product has sales history (must not delete — audit trail)
+    force = request.args.get("force", "").lower() == "true"
+
     has_sales = conn.execute(
         "SELECT 1 FROM sale_items WHERE sku = ? LIMIT 1", (sku,)
     ).fetchone()
-    if has_sales:
-        return jsonify({"error": "Cannot delete — product has sales history. Set quantity to 0 instead."}), 409
+
+    if has_sales and not force:
+        return jsonify({
+            "error": "Product has sales history.",
+            "has_sales": True,
+        }), 409
+
+    if has_sales and force:
+        # Admin force-delete: requires admin role
+        user = session.get("user", {})
+        if user.get("role") != "admin":
+            return jsonify({"error": "Only admins can force-delete products with sales history"}), 403
 
     try:
-        # Clean up dependent records that are safe to remove
+        conn.execute("DELETE FROM sale_items WHERE sku = ?", (sku,))
         conn.execute("DELETE FROM inventory_log WHERE sku = ?", (sku,))
         conn.execute("DELETE FROM purchases WHERE sku = ?", (sku,))
         conn.execute("DELETE FROM purchase_order_items WHERE sku = ?", (sku,))
@@ -774,7 +784,7 @@ def delete_product(sku):
         conn.commit()
     except Exception as e:
         conn.rollback()
-        return jsonify({"error": f"Cannot delete — product is referenced elsewhere: {e}"}), 409
+        return jsonify({"error": f"Delete failed: {e}"}), 409
 
     broadcast_event("inventory_updated", {"action": "deleted", "sku": sku})
     return jsonify({"success": True})
