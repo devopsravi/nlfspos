@@ -311,6 +311,7 @@ CREATE TABLE IF NOT EXISTS inventory (
     brand TEXT DEFAULT '',
     description TEXT DEFAULT '',
     cost_price REAL DEFAULT 0,
+    purchase_gst_pct REAL DEFAULT 0,
     selling_price REAL DEFAULT 0,
     quantity INTEGER DEFAULT 0,
     reorder_level INTEGER DEFAULT 3,
@@ -723,6 +724,11 @@ def _run_sqlite_migrations(conn):
         conn.execute("ALTER TABLE inventory ADD COLUMN hsn_code TEXT DEFAULT ''")
         print("[DB] Migration: added column inventory.hsn_code")
 
+    # Migration: add purchase_gst_pct column to inventory
+    if 'purchase_gst_pct' not in inv_cols:
+        conn.execute("ALTER TABLE inventory ADD COLUMN purchase_gst_pct REAL DEFAULT 0")
+        print("[DB] Migration: added column inventory.purchase_gst_pct")
+
     # Migration: add hsn_code to sale_items
     si_cols = {row[1] for row in conn.execute("PRAGMA table_info(sale_items)").fetchall()}
     if 'hsn_code' not in si_cols:
@@ -900,6 +906,16 @@ def _run_pg_migrations(conn):
         cur.execute("ALTER TABLE inventory ADD COLUMN hsn_code TEXT DEFAULT ''")
         conn._conn.commit()
         print("[DB] PG Migration: added column inventory.hsn_code")
+
+    # Migration: add purchase_gst_pct column to inventory
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'inventory' AND column_name = 'purchase_gst_pct'
+    """)
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE inventory ADD COLUMN purchase_gst_pct REAL DEFAULT 0")
+        conn._conn.commit()
+        print("[DB] PG Migration: added column inventory.purchase_gst_pct")
 
     # Migration: add hsn_code to sale_items
     cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'sale_items' AND column_name = 'hsn_code'")

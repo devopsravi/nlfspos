@@ -635,14 +635,15 @@ def add_product():
 
     db().execute(
         """INSERT INTO inventory
-        (sku, barcode, hsn_code, name, category, brand, description, cost_price, selling_price,
-         quantity, reorder_level, dimensions, weight, color, image_path,
+        (sku, barcode, hsn_code, name, category, brand, description, cost_price, purchase_gst_pct,
+         selling_price, quantity, reorder_level, dimensions, weight, color, image_path,
          supplier, date_added, last_updated)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (product["sku"], product.get("barcode", ""), product.get("hsn_code", ""),
          product.get("name", ""), product.get("category", ""),
          product.get("brand", ""), product.get("description", ""),
-         float(product.get("cost_price", 0)), float(product.get("selling_price", 0)),
+         float(product.get("cost_price", 0)), float(product.get("purchase_gst_pct", 0)),
+         float(product.get("selling_price", 0)),
          int(product.get("quantity", 0)), int(product.get("reorder_level", 3)),
          product.get("dimensions", ""), float(product.get("weight", 0)),
          product.get("color", ""), product.get("image_path", ""),
@@ -685,17 +686,19 @@ def update_product(sku):
     new_qty = int(data.get("quantity", original["quantity"]))
     now_str = datetime.now().isoformat()
 
+    new_gst = float(data.get("purchase_gst_pct", original.get("purchase_gst_pct", 0)))
+
     conn.execute(
         """UPDATE inventory SET
-        name=?, category=?, brand=?, description=?, cost_price=?, selling_price=?,
-        quantity=?, reorder_level=?, dimensions=?, weight=?, color=?, image_path=?,
-        supplier=?, barcode=?, hsn_code=?, last_updated=?
+        name=?, category=?, brand=?, description=?, cost_price=?, purchase_gst_pct=?,
+        selling_price=?, quantity=?, reorder_level=?, dimensions=?, weight=?, color=?,
+        image_path=?, supplier=?, barcode=?, hsn_code=?, last_updated=?
         WHERE sku=?""",
         (data.get("name", original["name"]),
          data.get("category", original["category"]),
          data.get("brand", original["brand"]),
          data.get("description", original["description"]),
-         new_cost, new_sell, new_qty,
+         new_cost, new_gst, new_sell, new_qty,
          int(data.get("reorder_level", original["reorder_level"])),
          data.get("dimensions", original["dimensions"]),
          float(data.get("weight", original["weight"])),

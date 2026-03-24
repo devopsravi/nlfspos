@@ -3,7 +3,7 @@
    Network-first when online, cache fallback offline
    ============================================= */
 
-const CACHE_NAME = 'nlf-pos-v1';
+const CACHE_NAME = 'nlf-pos-v3';
 
 const CDN_PATTERNS = [
   'cdn.jsdelivr.net',

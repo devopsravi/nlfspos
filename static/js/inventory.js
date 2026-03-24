@@ -78,8 +78,10 @@ const Inventory = {
     tbody.innerHTML = this.products.map((p, idx) => {
       const isLow = p.quantity <= (p.reorder_level || 3);
       const cost = parseFloat(p.cost_price) || 0;
+      const gst  = parseFloat(p.purchase_gst_pct) || 0;
+      const landed = cost * (1 + gst / 100);
       const price = parseFloat(p.selling_price) || 0;
-      const margin = price > 0 ? (((price - cost) / price) * 100).toFixed(1) : '0.0';
+      const margin = price > 0 ? (((price - landed) / price) * 100).toFixed(1) : '0.0';
       const marginColor = parseFloat(margin) >= 40 ? 'text-green-600' : parseFloat(margin) >= 20 ? 'text-amber-600' : 'text-red-600';
       const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
       const safeSku = esc(p.sku);
@@ -174,50 +176,80 @@ const Inventory = {
   setupPriceCalc() {
     const form = document.getElementById('productForm');
     if (!form) return;
-    const costEl = form.elements['cost_price'];
+    const costEl    = form.elements['cost_price'];
+    const gstEl     = form.elements['purchase_gst_pct'];
+    const landedEl  = form.elements['landed_cost'];
     const sellingEl = form.elements['selling_price'];
-    const markupEl = form.elements['markup_pct'];
-    const marginEl = form.elements['margin_pct'];
-    if (!costEl || !sellingEl || !markupEl || !marginEl) return;
+    const markupEl  = form.elements['markup_pct'];
+    const marginEl  = form.elements['margin_pct'];
+    if (!costEl || !gstEl || !landedEl || !sellingEl || !markupEl || !marginEl) return;
+
+    const getLanded = () => {
+      const cost = parseFloat(costEl.value) || 0;
+      const gst  = parseFloat(gstEl.value) || 0;
+      return cost * (1 + gst / 100);
+    };
+
+    const recalcLanded = () => {
+      const landed = getLanded();
+      landedEl.value = landed > 0 ? landed.toFixed(2) : '';
+    };
 
     const recalcMargin = () => {
-      const cost = parseFloat(costEl.value) || 0;
+      const landed  = getLanded();
       const selling = parseFloat(sellingEl.value) || 0;
-      if (selling > 0 && cost >= 0) {
-        marginEl.value = (((selling - cost) / selling) * 100).toFixed(2);
+      if (selling > 0 && landed >= 0) {
+        marginEl.value = (((selling - landed) / selling) * 100).toFixed(2);
       } else {
         marginEl.value = '';
       }
     };
 
-    // When Markup % changes → update Selling Price + Margin
+    // When Markup % changes → update Selling Price (from landed cost) + Margin
     markupEl.addEventListener('input', () => {
-      const cost = parseFloat(costEl.value) || 0;
+      const landed = getLanded();
       const markup = parseFloat(markupEl.value);
-      if (cost > 0 && !isNaN(markup)) {
-        sellingEl.value = (cost * (1 + markup / 100)).toFixed(2);
+      if (landed > 0 && !isNaN(markup)) {
+        sellingEl.value = (landed * (1 + markup / 100)).toFixed(2);
       }
       recalcMargin();
     });
 
-    // When Selling Price changes → update Markup + Margin
+    // When Selling Price changes → update Markup (from landed cost) + Margin
     sellingEl.addEventListener('input', () => {
-      const cost = parseFloat(costEl.value) || 0;
+      const landed  = getLanded();
       const selling = parseFloat(sellingEl.value) || 0;
-      if (cost > 0 && selling > 0) {
-        markupEl.value = (((selling - cost) / cost) * 100).toFixed(2);
+      if (landed > 0 && selling > 0) {
+        markupEl.value = (((selling - landed) / landed) * 100).toFixed(2);
       } else {
         markupEl.value = '';
       }
       recalcMargin();
     });
 
-    // When Cost Price changes → recalc Selling Price from Markup, then Margin
+    // When Cost Price changes → recalc Landed Cost, Selling Price from Markup, then Margin
     costEl.addEventListener('input', () => {
-      const cost = parseFloat(costEl.value) || 0;
+      recalcLanded();
+      const landed = getLanded();
       const markup = parseFloat(markupEl.value);
-      if (cost > 0 && !isNaN(markup) && markup > 0) {
-        sellingEl.value = (cost * (1 + markup / 100)).toFixed(2);
+      if (landed > 0 && !isNaN(markup) && markup > 0) {
+        sellingEl.value = (landed * (1 + markup / 100)).toFixed(2);
+      }
+      recalcMargin();
+    });
+
+    // When Purchase GST % changes → recalc Landed Cost, Selling Price from Markup, then Margin
+    gstEl.addEventListener('change', () => {
+      recalcLanded();
+      const landed = getLanded();
+      const markup = parseFloat(markupEl.value);
+      if (landed > 0 && !isNaN(markup) && markup > 0) {
+        sellingEl.value = (landed * (1 + markup / 100)).toFixed(2);
+      } else {
+        const selling = parseFloat(sellingEl.value) || 0;
+        if (landed > 0 && selling > 0) {
+          markupEl.value = (((selling - landed) / landed) * 100).toFixed(2);
+        }
       }
       recalcMargin();
     });
@@ -226,11 +258,14 @@ const Inventory = {
   _populateMarkupMargin() {
     const form = document.getElementById('productForm');
     if (!form) return;
-    const cost = parseFloat(form.elements['cost_price'].value) || 0;
+    const cost    = parseFloat(form.elements['cost_price'].value) || 0;
+    const gst     = parseFloat(form.elements['purchase_gst_pct'].value) || 0;
+    const landed  = cost * (1 + gst / 100);
     const selling = parseFloat(form.elements['selling_price'].value) || 0;
-    if (cost > 0 && selling > 0) {
-      form.elements['markup_pct'].value = (((selling - cost) / cost) * 100).toFixed(2);
-      form.elements['margin_pct'].value = (((selling - cost) / selling) * 100).toFixed(2);
+    form.elements['landed_cost'].value = landed > 0 ? landed.toFixed(2) : '';
+    if (landed > 0 && selling > 0) {
+      form.elements['markup_pct'].value = (((selling - landed) / landed) * 100).toFixed(2);
+      form.elements['margin_pct'].value = (((selling - landed) / selling) * 100).toFixed(2);
     } else {
       form.elements['markup_pct'].value = '';
       form.elements['margin_pct'].value = '';
@@ -296,6 +331,7 @@ const Inventory = {
     // Remove calculated-only fields (not stored in DB)
     delete data.markup_pct;
     delete data.margin_pct;
+    delete data.landed_cost;
 
     // Barcode is auto-generated on server; don't send empty value
     if (!data.barcode || !data.barcode.trim()) {
@@ -303,7 +339,7 @@ const Inventory = {
     }
 
     // Coerce numbers
-    ['cost_price', 'selling_price', 'weight'].forEach(f => { data[f] = parseFloat(data[f]) || 0; });
+    ['cost_price', 'selling_price', 'weight', 'purchase_gst_pct'].forEach(f => { data[f] = parseFloat(data[f]) || 0; });
     ['quantity', 'reorder_level'].forEach(f => { data[f] = parseInt(data[f]) || 0; });
 
     // Check if Print Label is requested

@@ -146,6 +146,8 @@ const POS = {
         hsn_code: product.hsn_code || '',
         name: product.name,
         price: product.selling_price,
+        cost_price: parseFloat(product.cost_price) || 0,
+        purchase_gst_pct: parseFloat(product.purchase_gst_pct) || 0,
         quantity: 1,
         maxQty: product.quantity,
         discountType: 'none',
@@ -223,6 +225,11 @@ const POS = {
     this.updateCartUI();
   },
 
+  toggleCartDetail(sku) {
+    const el = document.getElementById('cart-detail-' + sku);
+    if (el) el.classList.toggle('hidden');
+  },
+
   // --- Per-item discount helpers ---
 
   setItemDiscountType(sku, type) {
@@ -274,6 +281,21 @@ const POS = {
       if (taxCell) taxCell.textContent = App.currency(itemTax);
       const badge = row.querySelector('.cart-disc-badge');
       if (badge) badge.textContent = disc > 0 ? `-${App.currency(disc)}` : '';
+
+      const detail = document.getElementById('cart-detail-' + CSS.escape(c.sku));
+      if (detail && !detail.classList.contains('hidden')) {
+        const landed = (c.cost_price || 0) * (1 + (c.purchase_gst_pct || 0) / 100);
+        const hasDisc = c.discountType !== 'none' && disc > 0;
+        const effectivePrice = finalTotal / c.quantity;
+        const marginAfterDisc = effectivePrice > 0 ? (((effectivePrice - landed) / effectivePrice) * 100).toFixed(1) : '0.0';
+        const discSpan = detail.querySelector('.cart-detail-disc-margin');
+        if (discSpan && hasDisc) {
+          discSpan.innerHTML = `After Disc: <b class="${parseFloat(marginAfterDisc) >= 20 ? 'text-green-600' : 'text-red-600'}">${marginAfterDisc}%</b>`;
+          discSpan.classList.remove('hidden');
+        } else if (discSpan && !hasDisc) {
+          discSpan.classList.add('hidden');
+        }
+      }
     });
   },
 
@@ -344,6 +366,12 @@ const POS = {
         const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
 
         const safeSku = esc(c.sku);
+        const costP = c.cost_price || 0;
+        const gstP  = c.purchase_gst_pct || 0;
+        const landed = costP * (1 + gstP / 100);
+        const realMargin = c.price > 0 ? (((c.price - landed) / c.price) * 100).toFixed(1) : '0.0';
+        const marginAfterDisc = finalTotal > 0 ? (((finalTotal / c.quantity - landed) / (finalTotal / c.quantity)) * 100).toFixed(1) : '0.0';
+
         return `
         <tr class="${rowBg}" data-cart-sku="${safeSku}">
           <td class="px-4 py-2.5 text-center">
@@ -354,8 +382,19 @@ const POS = {
             </div>
           </td>
           <td class="px-4 py-2.5">
-            <div class="font-medium text-gray-800 text-sm leading-tight">${esc(c.name)}</div>
+            <div class="font-medium text-gray-800 text-sm leading-tight cursor-pointer hover:text-teal-600" onclick="POS.toggleCartDetail('${safeSku}')">${esc(c.name)} <span class="text-gray-300 text-xs">ⓘ</span></div>
             <div class="text-xs text-gray-400">${esc(c.barcode || c.sku)}</div>
+            <div id="cart-detail-${safeSku}" class="hidden mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-gray-700 leading-relaxed">
+              <div class="flex gap-3 flex-wrap">
+                <span>Cost: <b>${App.currency(costP)}</b></span>
+                <span>GST: <b>${gstP}%</b></span>
+                <span>Landed: <b class="text-amber-700">${App.currency(landed)}</b></span>
+              </div>
+              <div class="flex gap-3 flex-wrap mt-0.5">
+                <span>MRP Margin: <b class="${parseFloat(realMargin) >= 30 ? 'text-green-600' : 'text-red-600'}">${realMargin}%</b></span>
+                <span class="cart-detail-disc-margin ${hasDiscount ? '' : 'hidden'}">After Disc: <b class="${parseFloat(marginAfterDisc) >= 20 ? 'text-green-600' : 'text-red-600'}">${marginAfterDisc}%</b></span>
+              </div>
+            </div>
           </td>
           <td class="px-4 py-2.5 text-right font-semibold text-gray-700">${App.currency(c.price)}</td>
           <td class="px-4 py-2.5 text-right text-gray-500 cart-item-tax">${App.currency(itemTax)}</td>
