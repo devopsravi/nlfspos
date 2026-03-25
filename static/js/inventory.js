@@ -238,18 +238,15 @@ const Inventory = {
       recalcMargin();
     });
 
-    // When Purchase GST % changes → recalc Landed Cost, Selling Price from Markup, then Margin
+    // When Purchase GST % changes → recalc Landed Cost, keep Selling Price fixed, recalc Markup + Margin
     gstEl.addEventListener('change', () => {
       recalcLanded();
-      const landed = getLanded();
-      const markup = parseFloat(markupEl.value);
-      if (landed > 0 && !isNaN(markup) && markup > 0) {
-        sellingEl.value = (landed * (1 + markup / 100)).toFixed(2);
+      const landed  = getLanded();
+      const selling = parseFloat(sellingEl.value) || 0;
+      if (landed > 0 && selling > 0) {
+        markupEl.value = (((selling - landed) / landed) * 100).toFixed(2);
       } else {
-        const selling = parseFloat(sellingEl.value) || 0;
-        if (landed > 0 && selling > 0) {
-          markupEl.value = (((selling - landed) / landed) * 100).toFixed(2);
-        }
+        markupEl.value = '';
       }
       recalcMargin();
     });
